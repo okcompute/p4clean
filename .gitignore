@@ -1,3 +1,7 @@
+# python stuff
+environment
+*.pyc
+
+# vim stuff
 *.swp
 *.un~
-*.pyc
