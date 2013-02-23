@@ -1,7 +1,10 @@
-
 from distutils.core import setup
 
-setup(name='p4-clean',
-      version='1.0',
-      py_modules=['p4-clean'],
+setup(name="P4Clean",
+      version="1.0",
+      description="Perforce utilities",
+      author="Pascal Lalancette",
+      author_email="okcompute@icloud.com",
+      url="",
+      py_modules=['p4clean'],
       )

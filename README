@@ -1,0 +1,3 @@
+Perforce clean-up utility.
+
+This script does the same work as the "Reconcile offline work" in the P4V interface. In addition it will remove empty folders. The goal is to get your project tree looking the same as the time of a first sync with the depot.
