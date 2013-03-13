@@ -1,0 +1,2 @@
+[p4clean]
+exclusion = *.ctags;*.vimrc;*.txt;*.log;test.cpp;/folder/folder/file.x;;*.git/*;
