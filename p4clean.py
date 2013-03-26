@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import errno
 from commands import getoutput
@@ -20,9 +21,13 @@ class P4CleanConfig(object):
         args_exclusion_list = exclusion.split(';')
         config_exclusion_list = []
 
-        path = self.validate_config_file_path(path)
-        if path:
-            config_exclusion_list = self.parse_config_file(path)
+        validated_path = self.validate_config_file_path(path)
+        if validated_path is None:
+            # config file sets by user can't be found.
+            self.logger.error("Config file does'nt exist: %s", path)
+            raise IOError
+
+        config_exclusion_list = self.parse_config_file(validated_path)
 
         # chain args and config file exclusion lists
         exclusion_list = itertools.chain(args_exclusion_list,
@@ -53,24 +58,22 @@ class P4CleanConfig(object):
             # append config filename
             path = path + '/.p4clean'
         if not os.path.exists(path):
-            if source_path is not "":
-                # config file sets by user can't be found.Throw an error
-                self.logger.error("Config file does'nt exist: %s", source_path)
-                raise IOError
-            else:
-                return None
+            return None
         return path
 
     def parse_config_file(self, path):
+        try:
+            config_file = open(path)
+            config_file.close()
+        except IOError:
+            # No .p4clean find. That's okay.
+            return []
         config = ConfigParser.RawConfigParser()
         try:
             config.read(path)
             exclusion_list = config.get(P4CleanConfig.SECTION_NAME,
                                         P4CleanConfig.EXCLUSION_OPTION)
             return exclusion_list.split(';')
-        except IOError:
-            # No .p4clean find. That's okay.
-            return []
         except ConfigParser.NoSectionError:
             print "Error: Invalid p4clean config file: No section named \"%s\" found." % \
                 P4CleanConfig.SECTION_NAME
@@ -99,6 +102,7 @@ def get_perforce_status(path):
         os.chdir(path)
         return getoutput("p4 status")
     except Exception:
+        print "Unexpected error:", sys.exc_info()
         return None
     finally:
         os.chdir(old_path)
@@ -129,18 +133,21 @@ def delete_untracked_files(config, path):
 
 def main():
     # TODO:
-    # push to github
     # improved setup.py and write readme.rst
     # add good logs
     # test this thing on a real folder
+    # add interactive validation for files to delete (e.g.
+    #   /(D)elete/(A)dd all/(S)kip/)
     parser = argparse.ArgumentParser()
-    parser.add_argument("path",
+    parser.add_argument("--path",
+                        default='.',
                         help="root path from which all child empty folders will be deleted")
-    parser.add_argument("exclude",
+    parser.add_argument("--exclude",
+                        default='',
                         help="files exclusion pattern (e.g.: *.txt")
     args = parser.parse_args()
 
-    config = P4CleanConfig(args.path)
+    config = P4CleanConfig(args.path, args.exclude)
 
     delete_untracked_files(config, args.path)
 
