@@ -6,7 +6,6 @@ import ast
 from setuptools import setup
 
 
-
 def version():
     """Return version string."""
     with open('p4clean.py') as input_file:

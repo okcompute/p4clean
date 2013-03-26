@@ -1,1 +1,4 @@
-include p4clean  README
+include README.rst
+include test/__init__.py
+include test/test_p4clean.py
+include test/data/.p4clean

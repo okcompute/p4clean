@@ -161,7 +161,7 @@ def delete_untracked_files(config, path):
 
 def main():
     # TODO:
-    # improved setup.py and write readme.rst
+    # make pip install work.
     # add good logs
     # test this thing on a real folder
     # add interactive validation for files to delete (e.g.
