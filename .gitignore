@@ -1,7 +1,11 @@
 # python stuff
 environment
+build
+dist
 *.pyc
+p4clean.egg-info
 
 # vim stuff
 *.swp
 *.un~
+tags
