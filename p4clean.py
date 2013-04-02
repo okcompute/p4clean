@@ -44,23 +44,35 @@ class P4CleanConfig(object):
     SECTION_NAME = 'p4clean'
     EXCLUSION_OPTION = 'exclusion'
 
-    def __init__(self, path="", exclusion=""):
+    def __init__(self, path=None, exclusion=None):
+        """  """
         self.logger = logging.getLogger()
-        args_exclusion_list = exclusion.split(';')
-        config_exclusion_list = []
+        # Look for the .p4clean file. Quit if not found.
+        if path is None:
+            # user has not provided a config file path. Use cwd.
+            validated_path = self.validate_config_file_path(".")
+        else:
+            validated_path = self.validate_config_file_path(path)
 
-        validated_path = self.validate_config_file_path(path)
         if validated_path is None:
-            # config file sets by user can't be found.
-            self.logger.error("Config file does'nt exist: %s", path)
-            raise IOError
+            if path is not None:
+                # user defined config file not found.
+                self.logger.error("Config file doesn't exist: %s", path)
+                raise IOError
 
-        config_exclusion_list = self.parse_config_file(validated_path)
+        args_exclusion_list = []
+        if exclusion:
+            args_exclusion_list = exclusion.split(';')
+
+        config_exclusion_list = []
+        if validated_path:
+            config_exclusion_list = self.parse_config_file(validated_path)
 
         # chain args and config file exclusion lists
         exclusion_list = itertools.chain(args_exclusion_list,
                                          config_exclusion_list)
         exclusion_list = list(exclusion_list)
+        exclusion_list.append('.p4clean')
         self.exclusion_regex = self.compute_regex(exclusion_list)
 
     def compute_regex(self, exclusion_list):
@@ -70,13 +82,10 @@ class P4CleanConfig(object):
         return re.match(self.exclusion_regex, filename)
 
     def validate_config_file_path(self, source_path):
-        """ Construct and return a valid source_path for config file.
-        None is returned if the file doesn't exist"""
+        """ Return absolute config file path. Return None if non-existent."""
         if source_path is "":
-            # if no source_path provided, set current
-            # working directory
-            path = os.getcwd()
-        elif not os.path.isabs(source_path):
+            return None
+        if not os.path.isabs(source_path):
             # make source_path absolute
             path = os.path.abspath(source_path)
         else:
@@ -90,6 +99,7 @@ class P4CleanConfig(object):
         return path
 
     def parse_config_file(self, path):
+        """ Return exclusion list from a config file. """
         try:
             config_file = open(path)
             config_file.close()
@@ -114,17 +124,21 @@ class P4CleanConfig(object):
 
 def delete_empty_folders(root):
     """Delete all empty folders under root (excluding root)"""
+    empty_folder_count = 0
     for path, directories, files in os.walk(root, topdown=False):
         if not files and path is not root:
             try:
-                print "deleting " + path
+                print "Deleting folder '%s'" % path
                 os.rmdir(path)
+                empty_folder_count = empty_folder_count + 1
             except OSError, e:
                 if e.errno == errno.ENOTEMPTY:
                     pass
+    print "%d empty folders deleted." % empty_folder_count
 
 
 def get_perforce_status(path):
+    """ Return the output of calling the command line 'p4 status'. """
     old_path = os.getcwd()
     try:
         os.chdir(path)
@@ -136,7 +150,8 @@ def get_perforce_status(path):
         os.chdir(old_path)
 
 
-def compute_files_to_delete(config, status):
+def compute_files_to_delete(status, config):
+    """ Parse the perforce status and return a list of files to delete. """
     status_lines = status.split('\n')
     files_to_delete = []
     for filename in status_lines:
@@ -150,36 +165,38 @@ def compute_files_to_delete(config, status):
 
 def delete_files(files_list):
     for filename in files_list:
+        print "Deleting file '%s'" % filename
         os.remove(filename)
 
 
 def delete_untracked_files(config, path):
     perforce_status = get_perforce_status(path)
-    files_to_delete = compute_files_to_delete(config, perforce_status)
+    files_to_delete = compute_files_to_delete(perforce_status, config)
     delete_files(files_to_delete)
+    print "%d files deleted." % len(files_to_delete)
 
 
 def main():
     # TODO:
-    # make pip install work.
-    # add good logs
-    # test this thing on a real folder
     # add interactive validation for files to delete (e.g.
     #   /(D)elete/(A)dd all/(S)kip/)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path",
-                        default='.',
-                        help="root path from which all child empty folders will be deleted")
+    parser.add_argument("--config_path",
+                        default=None,
+                        help="config file path.")
     parser.add_argument("--exclude",
-                        default='',
+                        default=None,
                         help="files exclusion pattern (e.g.: *.txt")
     args = parser.parse_args()
 
-    config = P4CleanConfig(args.path, args.exclude)
+    try:
+        config = P4CleanConfig(args.config_path, args.exclude)
+    except IOError:
+        return
 
-    delete_untracked_files(config, args.path)
+    delete_untracked_files(config, ".")
 
-    delete_empty_folders(args.path)
+    delete_empty_folders(".")
 
 
 if __name__ == "__main__":

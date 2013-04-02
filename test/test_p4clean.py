@@ -79,6 +79,18 @@ def test_validate_config_file_path():
     assert path == os.getcwd() + '/test/data/.p4clean', "Unexpected config file path"
 
 
+def test_validate_config_file_path_empty():
+    def P4CleanConfig_init():
+        pass
+
+    mock('p4clean.P4CleanConfig.__init__', returns_func=P4CleanConfig_init)
+    config = p4clean.P4CleanConfig()
+    restore()
+
+    path = config.validate_config_file_path("")
+    assert path is None, "Unexpected config file path"
+
+
 def test_validate_config_file_path_on_cwd():
     def P4CleanConfig_init(self, path="", exclusion=""):
         pass
@@ -211,7 +223,7 @@ def test_compute_files_to_delete():
 
     config = MockConfig()
 
-    files_to_delete = p4clean.compute_files_to_delete(config, fake_status)
+    files_to_delete = p4clean.compute_files_to_delete(fake_status, config)
 
     print files_to_delete
     assert len(files_to_delete) == 3, "Unexpected numbers of files to delete"
