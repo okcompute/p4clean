@@ -85,12 +85,8 @@ class P4CleanConfig(object):
         """ Return absolute config file path. Return None if non-existent."""
         if source_path is "":
             return None
-        if not os.path.isabs(source_path):
-            # make source_path absolute
-            path = os.path.abspath(source_path)
-        else:
-            # normalize in other cases
-            path = os.path.normpath(source_path)
+        # make source_path absolute and normalize
+        path = os.path.abspath(source_path)
         if os.path.isdir(path):
             # append config filename
             path = path + '/.p4clean'
@@ -122,18 +118,20 @@ class P4CleanConfig(object):
             return []
 
 
-def delete_empty_folders(root):
+def delete_empty_folders(config, root):
     """Delete all empty folders under root (excluding root)"""
     empty_folder_count = 0
     for path, directories, files in os.walk(root, topdown=False):
         if not files and path is not root:
-            try:
-                print "Deleting folder '%s'" % path
-                os.rmdir(path)
-                empty_folder_count = empty_folder_count + 1
-            except OSError, e:
-                if e.errno == errno.ENOTEMPTY:
-                    pass
+            absolute_path = os.path.abspath(path)
+            if not config.is_excluded(absolute_path):
+                try:
+                    os.rmdir(absolute_path)
+                    print "Folder '%s deleted'" % absolute_path
+                    empty_folder_count = empty_folder_count + 1
+                except OSError, e:
+                    if e.errno == errno.ENOTEMPTY:
+                        pass
     print "%d empty folders deleted." % empty_folder_count
 
 
@@ -165,8 +163,8 @@ def compute_files_to_delete(status, config):
 
 def delete_files(files_list):
     for filename in files_list:
-        print "Deleting file '%s'" % filename
         os.remove(filename)
+        print "File '%s deleted'" % filename
 
 
 def delete_untracked_files(config, path):
@@ -196,7 +194,7 @@ def main():
 
     delete_untracked_files(config, ".")
 
-    delete_empty_folders(".")
+    delete_empty_folders(config, ".")
 
 
 if __name__ == "__main__":

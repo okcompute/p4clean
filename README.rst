@@ -46,6 +46,6 @@ p4clean exclusion file example:
 *******
 
 [p4clean]
-exclusion = *.log;*.git/*;
+exclusion = *.log;*/.git*;
 
 *******

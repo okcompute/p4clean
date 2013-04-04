@@ -59,8 +59,9 @@ def test_p4clean_config_constructor():
     assert not config.is_excluded('/folder/test.cpp'), "File should be exluded"
     assert not config.is_excluded('file.x'), "File should not be exluded"
     assert config.is_excluded('/folder/folder/file.x'), "File should be exluded"
-    assert config.is_excluded('.git/'), "Directory should be exluded"
+    assert config.is_excluded('/Users/test/project/.git'), "Directory should be exluded"
     assert config.is_excluded('/folder/x/.git/file.x'), "File should be exluded"
+    assert config.is_excluded('/.git'), "File should be exluded"
     assert config.is_excluded('.ctags'), "File should be exluded"
     assert config.is_excluded('/tata/tata/.ctags'), "File should be exluded"
     assert config.is_excluded('.vimrc'), "File should be exluded"
@@ -156,8 +157,20 @@ def test_delete_empty_folders():
     create_file(root_folder, 'folderA/folderAA/temp.txt')
     create_file(root_folder, 'folderD/folderDD/temp.txt')
 
+    def P4CleanConfig_init(self, path="", exclusion=""):
+        pass
+
+    def P4CleanConfig_is_excluded(self, path=""):
+        return False
+
+    mock('p4clean.P4CleanConfig.__init__', returns_func=P4CleanConfig_init)
+    mock('p4clean.P4CleanConfig.is_excluded', returns_func=P4CleanConfig_is_excluded)
+    config = p4clean.P4CleanConfig("")
+
     # the tested function call
-    p4clean.delete_empty_folders(root_folder)
+    p4clean.delete_empty_folders(config, root_folder)
+
+    restore()
 
     folder_list = [path for path, directories, files in os.walk(root_folder)]
 
@@ -186,8 +199,20 @@ def test_delete_empty_folder_keep_current_folder():
     # function on the . folder
     os.chdir(root_folder)
 
+    def P4CleanConfig_init(self, path="", exclusion=""):
+        pass
+
+    def P4CleanConfig_is_excluded(self, path=""):
+        return False
+
+    mock('p4clean.P4CleanConfig.__init__', returns_func=P4CleanConfig_init)
+    mock('p4clean.P4CleanConfig.is_excluded', returns_func=P4CleanConfig_is_excluded)
+    config = p4clean.P4CleanConfig("")
+
     # the tested function call
-    p4clean.delete_empty_folders(".")
+    p4clean.delete_empty_folders(config, ".")
+
+    restore()
 
     folder_list = [path for path, directories, files in os.walk(root_folder)]
 
