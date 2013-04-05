@@ -3,9 +3,14 @@ P4clean
 
 About
 -----
-P4clean is a small utility used to return a local Perfoce workspace to its original state. It deletes any files not found in the depot or not currently opened for add. This utility uses 'p4 status' under the hood to find untracked files. Empty folders are also deleted.
+P4clean returns a local Perfoce workspace to its original state. It deletes untracked files and removes all empty folders. 'p4 status' is used under the hood.
 
-If you prefer to add files to changelist instead of deleting, use Perforce's 'p4 reconcile' command instead.
+This tool is to be used only if you are certain untracked files can be deleted. If this is not the case, Perforce's 'p4 reconcile' may be more useful.
+
+Requirements
+------------
+
+Perforce server and command line tools 2012.1 or higher must be installed.
 
 Installation
 ------------
@@ -37,11 +42,11 @@ Options::
       --path                path onto which the cleanup will be processed
 
 
-Exclusion config file::
+Config file::
 
-A permanent exclusion config file can be associated with the workspace. Add a file named '.p4clean' at the root level of the local worspace. each time p4clean is run it will look for it. Files or directories matching the file patterns listed will be excluded from the tool.
+An optional p4clean config file can be associated with the workspace. Add a file named '.p4clean' at the root level of the local worspace. Each time p4clean is run it will look for it. A recursive lookup up to the root of the local workspace is done to find the file. This means you can call p4clean anywhere in the workspace folder tree. Files or directories matching the file patterns listed will be excluded from the tool.
 
-p4clean exclusion file example:
+p4clean config file example:
 
 *******
 
