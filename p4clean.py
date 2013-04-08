@@ -42,37 +42,27 @@ class P4CleanConfig(object):
     """Configurations for processing the p4 depot clean up process."""
 
     SECTION_NAME = 'p4clean'
+    CONFIG_FILENAME = '.p4clean'
     EXCLUSION_OPTION = 'exclusion'
 
-    def __init__(self, path=None, exclusion=None):
+    def __init__(self, perfoce_root, exclusion=None):
         """  """
         self.logger = logging.getLogger()
-        # Look for the .p4clean file. Quit if not found.
-        if path is None:
-            # user has not provided a config file path. Use cwd.
-            validated_path = self.validate_config_file_path(".")
-        else:
-            validated_path = self.validate_config_file_path(path)
-
-        if validated_path is None:
-            if path is not None:
-                # user defined config file not found.
-                self.logger.error("Config file doesn't exist: %s", path)
-                raise IOError
+        # Look for the .p4clean file.
+        config_exclusion_list = []
+        config_path = self.config_file_path(perfoce_root, )
+        if config_path:
+            config_exclusion_list = self.parse_config_file(config_path)
 
         args_exclusion_list = []
         if exclusion:
             args_exclusion_list = exclusion.split(';')
 
-        config_exclusion_list = []
-        if validated_path:
-            config_exclusion_list = self.parse_config_file(validated_path)
-
         # chain args and config file exclusion lists
         exclusion_list = itertools.chain(args_exclusion_list,
                                          config_exclusion_list)
         exclusion_list = list(exclusion_list)
-        exclusion_list.append('.p4clean')
+        exclusion_list.append(P4CleanConfig.CONFIG_FILENAME)
         self.exclusion_regex = self.compute_regex(exclusion_list)
 
     def compute_regex(self, exclusion_list):
@@ -81,18 +71,18 @@ class P4CleanConfig(object):
     def is_excluded(self, filename):
         return re.match(self.exclusion_regex, filename)
 
-    def validate_config_file_path(self, source_path):
+    def config_file_path(self, root):
         """ Return absolute config file path. Return None if non-existent."""
-        if source_path is "":
-            return None
-        # make source_path absolute and normalize
-        path = os.path.abspath(source_path)
-        if os.path.isdir(path):
-            # append config filename
-            path = path + '/.p4clean'
-        if not os.path.exists(path):
-            return None
-        return path
+        path = os.getcwd()
+        while True:
+            config_file = path + '/.p4clean'
+            if os.path.exists(config_file):
+                return config_file
+            else:
+                if path is root:
+                    return None
+                else:
+                    path = os.path.dirname(path)
 
     def parse_config_file(self, path):
         """ Return exclusion list from a config file. """
@@ -135,6 +125,36 @@ def delete_empty_folders(config, root):
     print "%d empty folders deleted." % empty_folder_count
 
 
+def is_inside_perforce_workspace():
+    """Return True if path inside current workspace."""
+    try:
+        where = getoutput("p4 where")
+    except Exception:
+        print "Perforce unavailable:", sys.exc_info()
+        return False
+    if re.match(".*is not under client's root.*", where):
+        print "Path '%s' is not under Perforce client's root" % os.getcwd()
+        return False
+    return True
+
+
+def get_perforce_root():
+    """ Return the perforce root. """
+    try:
+        info = getoutput("p4 info")
+    except Exception:
+        print "Perforce is unavailable:", sys.exc_info()
+        return None
+    info_lines = info.split('\n')
+    for information in info_lines:
+        if information.startswith('Client root:'):
+            root = information[12:]
+            root = root.strip(' /')
+            return root
+    print "Invalid 'p4 info' result"
+    return None
+
+
 def get_perforce_status(path):
     """ Return the output of calling the command line 'p4 status'. """
     old_path = os.getcwd()
@@ -175,25 +195,19 @@ def delete_untracked_files(config, path):
 
 
 def main():
-    # TODO:
-    # add interactive validation for files to delete (e.g.
-    #   /(D)elete/(A)dd all/(S)kip/)
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path",
-                        default=None,
-                        help="config file path.")
-    parser.add_argument("--exclude",
-                        default=None,
-                        help="files exclusion pattern (e.g.: *.txt")
-    args = parser.parse_args()
 
-    try:
-        config = P4CleanConfig(args.config_path, args.exclude)
-    except IOError:
+    if not is_inside_perforce_workspace():
         return
 
-    delete_untracked_files(config, ".")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exclude",
+                        default=None,
+                        help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
+    args = parser.parse_args()
 
+    config = P4CleanConfig(get_perforce_root(), args.exclude)
+
+    delete_untracked_files(config, ".")
     delete_empty_folders(config, ".")
 
 
