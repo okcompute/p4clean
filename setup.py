@@ -18,9 +18,7 @@ with open('README.rst') as readme:
     setup(
         name='p4clean',
         version=version(),
-        description='A tool to reset perforce local workspace to its initial state. '
-        'The operation is similar to "Reconcile Offline Work" operation with more '
-        'features.',
+        description='A tool to reset perforce local workspace to its initial state. ',
         long_description=readme.read(),
         license='Expat License',
         author='Pascal Lalancette',

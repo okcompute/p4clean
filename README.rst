@@ -5,7 +5,7 @@ About
 -----
 P4clean returns a folder tree inside a local Perfoce workspace to its original state by deleting untracked files and removing all empty folders.
 
-Warning: This tool is to be used only if you are confident untracked files can be deleted. Otherwise Perforce's 'p4 reconcile' may be a better choice.
+**Warning**: This tool is to be used only if you are confident untracked files can be deleted. Otherwise Perforce's 'p4 reconcile' may be a better choice.
 
 Requirements
 ------------
@@ -35,16 +35,20 @@ Options::
     Clean Perfoce local workspace.
 
     Options:
-      --version             show program's version number and exit
-      -h, --help            show this help message and exit
-      --exclude           semicolon separated list of file and folder patterns to be ignored from the clean-up.
+      --version             Show program's version number and exit
+      -h, --help            Show this help message and exit
+      --exclude             Semicolon separated list of file and folder patterns to be ignored from the clean-up.
 
+Config file
+-----------
 
-Config file::
-
-An optional p4clean config file can be used. Add a file named '.p4clean' anywhere inside the local workspace (Suggested location for .p4clean config file is workspace root). At launch, p4clean looks recursively up to the workspace root for this file. If found, matching pattern files and directories are excluded from the clean-up. 
+An optional p4clean config file can be used. Add a file named '.p4clean' anywhere
+inside the local workspace (Suggested location for .p4clean config file is workspace root).
+At launch, p4clean looks recursively up to the workspace root for this file. 
+If found, matching pattern files and directories are excluded from the clean-up. 
 
 p4clean config file example::
 
     [p4clean]
     exclude = *.log;*/.git*;
+
