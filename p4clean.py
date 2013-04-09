@@ -45,12 +45,12 @@ class P4CleanConfig(object):
     CONFIG_FILENAME = '.p4clean'
     EXCLUSION_OPTION = 'exclude'
 
-    def __init__(self, perfoce_root, exclusion=None):
+    def __init__(self, perforce_root, exclusion=None):
         """  """
         self.logger = logging.getLogger()
         # Look for the .p4clean file.
         config_exclusion_list = []
-        config_path = self.config_file_path(perfoce_root, )
+        config_path = self.config_file_path(perforce_root)
         if config_path:
             config_exclusion_list = self.parse_config_file(config_path)
 
@@ -75,11 +75,11 @@ class P4CleanConfig(object):
         """ Return absolute config file path. Return None if non-existent."""
         path = os.getcwd()
         while True:
-            config_file = path + '/.p4clean'
+            config_file = os.path.join(path, '.p4clean')
             if os.path.exists(config_file):
                 return config_file
             else:
-                if path is root:
+                if path.lower() == root.lower():
                     return None
                 else:
                     path = os.path.dirname(path)
@@ -140,7 +140,6 @@ def shell_execute(command):
     return result
 
 
-# print get_output('ls')
 def is_inside_perforce_workspace():
     """Return True if path inside current workspace."""
     where = shell_execute("p4 where")
@@ -160,8 +159,9 @@ def get_perforce_root():
     for information in info_lines:
         if information.startswith('Client root:'):
             root = information[12:]
-            root = root.strip(' /')
-            return root
+            # filter space, line feed and line return.
+            root = root.strip(' /\r\n')
+            return os.path.normpath(root)
     print "Invalid 'p4 info' result"
     return None
 
@@ -200,6 +200,9 @@ def delete_files(files_list):
 
 def delete_untracked_files(config, path):
     perforce_status = get_perforce_status(path)
+    if not perforce_status:
+        print "Perforce error. Version 2012.1 or higher is required"
+        return 0
     files_to_delete = compute_files_to_delete(perforce_status, config)
     delete_files(files_to_delete)
     return len(files_to_delete)
