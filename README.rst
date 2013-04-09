@@ -42,10 +42,9 @@ Options::
 
 Config file::
 
-An optional p4clean config file can be used. Add a file named '.p4clean' anywhere inside the local workspace. At launch, p4clean looks recursively up to the workspace root for this file. If found, matching pattern files and directories are excluded from the clean-up. 
+An optional p4clean config file can be used. Add a file named '.p4clean' anywhere inside the local workspace (Suggested location for .p4clean config file is workspace root). At launch, p4clean looks recursively up to the workspace root for this file. If found, matching pattern files and directories are excluded from the clean-up. 
 
 p4clean config file example::
 
     [p4clean]
     exclude = *.log;*/.git*;
-
