@@ -28,13 +28,14 @@ import os
 import sys
 import argparse
 import errno
-from commands import getoutput
+import subprocess
 import re
 import fnmatch
 import ConfigParser
 import itertools
 import logging
 
+__version__ = '0.0.3'
 
 
 class P4CleanConfig(object):
@@ -42,7 +43,6 @@ class P4CleanConfig(object):
 
     SECTION_NAME = 'p4clean'
     CONFIG_FILENAME = '.p4clean'
-    EXCLUSION_OPTION = 'exclusion'
     EXCLUSION_OPTION = 'exclude'
 
     def __init__(self, perfoce_root, exclusion=None):
@@ -117,23 +117,34 @@ def delete_empty_folders(config, root):
             if not config.is_excluded(absolute_path):
                 try:
                     os.rmdir(absolute_path)
-                    print "Folder '%s deleted'" % absolute_path
+                    print "Folder '%s' deleted" % absolute_path
                     empty_folder_count = empty_folder_count + 1
                 except OSError, e:
                     if e.errno == errno.ENOTEMPTY:
                         pass
-    print "%d empty folders deleted." % empty_folder_count
+    return empty_folder_count
 
 
+def shell_execute(command):
+    """ Run a shell command
+
+    :command: the shell command to run
+    :returns: None if command fail else the command output
+
+    """
+    try:
+        result = subprocess.check_output(command.split())
+    except subprocess.CalledProcessError:
+        # Do nothing, the error is already sent to stderr
+        return None
+    return result
+
+
+# print get_output('ls')
 def is_inside_perforce_workspace():
     """Return True if path inside current workspace."""
-    try:
-        where = getoutput("p4 where")
-    except Exception:
-        print "Perforce unavailable:", sys.exc_info()
-        return False
-    if re.match(".*is not under client's root.*", where):
-        print "Path '%s' is not under Perforce client's root" % os.getcwd()
+    where = shell_execute("p4 where")
+    if where is None:
         return False
     return True
 
@@ -141,7 +152,7 @@ def is_inside_perforce_workspace():
 def get_perforce_root():
     """ Return the perforce root. """
     try:
-        info = getoutput("p4 info")
+        info = shell_execute("p4 info")
     except Exception:
         print "Perforce is unavailable:", sys.exc_info()
         return None
@@ -160,7 +171,7 @@ def get_perforce_status(path):
     old_path = os.getcwd()
     try:
         os.chdir(path)
-        return getoutput("p4 status")
+        return shell_execute("p4 status")
     except Exception:
         print "Unexpected error:", sys.exc_info()
         return None
@@ -184,14 +195,14 @@ def compute_files_to_delete(status, config):
 def delete_files(files_list):
     for filename in files_list:
         os.remove(filename)
-        print "File '%s deleted'" % filename
+        print "File '%s' deleted" % filename
 
 
 def delete_untracked_files(config, path):
     perforce_status = get_perforce_status(path)
     files_to_delete = compute_files_to_delete(perforce_status, config)
     delete_files(files_to_delete)
-    print "%d files deleted." % len(files_to_delete)
+    return len(files_to_delete)
 
 
 def main():
@@ -207,9 +218,14 @@ def main():
 
     config = P4CleanConfig(get_perforce_root(), args.exclude)
 
-    delete_untracked_files(config, ".")
-    delete_empty_folders(config, ".")
+    deleted_files_count = delete_untracked_files(config, ".")
+    deleted_folders_count = delete_empty_folders(config, ".")
 
+    print 80 * "-"
+    print "P4Clean summary:"
+    print 80 * "-"
+    print "%d untracked files deleted." % deleted_files_count
+    print "%d empty folders deleted." % deleted_folders_count
 
 if __name__ == "__main__":
     main()
