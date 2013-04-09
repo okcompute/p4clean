@@ -47,5 +47,5 @@ An optional p4clean config file can be used. Add a file named '.p4clean' anywher
 p4clean config file example::
 
     [p4clean]
-    exclusion = *.log;*/.git*;
+    exclude = *.log;*/.git*;
 

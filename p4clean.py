@@ -35,7 +35,6 @@ import ConfigParser
 import itertools
 import logging
 
-__version__ = '0.0.2'
 
 
 class P4CleanConfig(object):
@@ -44,6 +43,7 @@ class P4CleanConfig(object):
     SECTION_NAME = 'p4clean'
     CONFIG_FILENAME = '.p4clean'
     EXCLUSION_OPTION = 'exclusion'
+    EXCLUSION_OPTION = 'exclude'
 
     def __init__(self, perfoce_root, exclusion=None):
         """  """
