@@ -205,57 +205,60 @@ class P4CleanConfig(object):
             return []
 
 
-def delete_empty_folders(config):
-    """Delete all empty folders under root (excluding root)"""
-    empty_folder_count = 0
-    root = os.getcwd()
-    for path, directories, files in os.walk(root, topdown=False):
-        if not files and path is not root:
-            absolute_path = os.path.abspath(path)
-            if not config.is_excluded(absolute_path):
-                try:
-                    os.rmdir(absolute_path)
-                    print "Folder '%s' deleted" % absolute_path
-                    empty_folder_count = empty_folder_count + 1
-                except OSError, e:
-                    if e.errno == errno.ENOTEMPTY:
-                        pass
-    return empty_folder_count
+class P4Clean:
+    """ Restore current working folder and subfolder to orginal state."""
+    def __init__(self):
+        self.perforce = Perforce()
 
+        if not self.perforce.is_inside_perforce_workspace():
+            return
 
-def delete_untracked_files(perforce, config):
-    deleted_count = 0
-    for filename in perforce.get_untracked_files(os.getcwd()):
-        if not config.is_excluded(filename):
-            os.remove(filename)
-            print "File '%s' deleted" % filename
-            deleted_count = deleted_count + 1
-    return deleted_count
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--exclude",
+                            default=None,
+                            help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
+        args = parser.parse_args()
+
+        self.config = P4CleanConfig(self.perforce.root, args.exclude)
+
+        deleted_files_count = self.delete_untracked_files()
+        deleted_folders_count = self.delete_empty_folders()
+
+        print 80 * "-"
+        print "P4Clean summary:"
+        print 80 * "-"
+        print "%d untracked files deleted." % deleted_files_count
+        print "%d empty folders deleted." % deleted_folders_count
+
+    def delete_empty_folders(self):
+        """Delete all empty folders under root (excluding root)"""
+        empty_folder_count = 0
+        root = os.getcwd()
+        for path, directories, files in os.walk(root, topdown=False):
+            if not files and path is not root:
+                absolute_path = os.path.abspath(path)
+                if not self.config.is_excluded(absolute_path):
+                    try:
+                        os.rmdir(absolute_path)
+                        print "Folder '%s' deleted" % absolute_path
+                        empty_folder_count = empty_folder_count + 1
+                    except OSError, e:
+                        if e.errno == errno.ENOTEMPTY:
+                            pass
+        return empty_folder_count
+
+    def delete_untracked_files(self):
+        deleted_count = 0
+        for filename in self.perforce.get_untracked_files(os.getcwd()):
+            if not self.config.is_excluded(filename):
+                os.remove(filename)
+                print "File '%s' deleted" % filename
+                deleted_count = deleted_count + 1
+        return deleted_count
 
 
 def main():
-
-    perforce = Perforce()
-
-    if not perforce.is_inside_perforce_workspace():
-        return
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--exclude",
-                        default=None,
-                        help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
-    args = parser.parse_args()
-
-    config = P4CleanConfig(perforce.root, args.exclude)
-
-    deleted_files_count = delete_untracked_files(perforce, config)
-    deleted_folders_count = delete_empty_folders(config)
-
-    print 80 * "-"
-    print "P4Clean summary:"
-    print 80 * "-"
-    print "%d untracked files deleted." % deleted_files_count
-    print "%d empty folders deleted." % deleted_folders_count
+    P4Clean()
 
 if __name__ == "__main__":
     main()
