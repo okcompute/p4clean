@@ -38,6 +38,103 @@ import logging
 __version__ = '0.0.4'
 
 
+def shell_execute(command):
+    """ Run a shell command
+
+    :command: the shell command to run
+    :returns: None if command fail else the command output
+
+    """
+    try:
+        result = subprocess.check_output(command.split())
+    except subprocess.CalledProcessError:
+        # Do nothing, the error is already sent to stderr
+        return None
+    return result
+
+
+class Perforce(object):
+    """ Encapsulate generic perforce commands."""
+
+    def __new__(cls):
+        (version, root) = Perforce.info()
+        if version >= 2012:
+            instance = super(Perforce, cls).__new__(Perforce2012, root)
+        else:
+            instance = super(Perforce, cls).__new__(cls, root)
+
+        instance.root = root
+        return instance
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def info():
+        """ Return perforce version and root."""
+        # get version
+        try:
+            info = shell_execute("p4 info")
+        except Exception:
+            print "Perforce is unavailable:", sys.exc_info()
+            return (None, None)
+        root = None
+        version = None
+        info_lines = info.lower().split('\n')
+        for information in info_lines:
+            if information.startswith('client root:'):
+                root = information[12:]
+                # filter space, line feed and line return.
+                root = root.strip(' /\r\n')
+            elif information.startswith('server version:'):
+                version = information[15:]
+                version = version.split('/')[2]
+                version = version.split('.')[0]
+                version = int(version)
+        return (version, root)
+
+    def is_inside_perforce_workspace(self):
+        """Return True if path inside current workspace."""
+        where = shell_execute("p4 where")
+        if where is None:
+            return False
+        return True
+
+    def get_untracked_files(self, root):
+        raise NotImplementedError("TBD")
+
+
+class Perforce2012(Perforce):
+    """Perforce 2012 and up command"""
+
+    def __init__(self):
+        super(Perforce2012, self).__init__()
+
+    def get_untracked_files(self, root):
+        """Return list of untracked files. """
+        status = self._get_perforce_status(root)
+        status_lines = status.split('\n')
+        untracked_files = []
+        for filename in status_lines:
+            if re.match('.*reconcile to add.*', filename):
+                filename = re.sub(r"\s-\s.*$", "", filename)
+                filename = filename.strip()
+                untracked_files.append(filename)
+        return untracked_files
+
+    def _get_perforce_status(self, path):
+        """ Return the output of calling the command line 'p4 status'. """
+        old_path = os.getcwd()
+        try:
+            os.chdir(path)
+            return shell_execute("p4 status")
+        except Exception:
+            print "Unexpected error:", sys.exc_info()
+            return None
+        finally:
+            os.chdir(old_path)
+
+
 class P4CleanConfig(object):
     """Configurations for processing the p4 depot clean up process."""
 
@@ -108,9 +205,10 @@ class P4CleanConfig(object):
             return []
 
 
-def delete_empty_folders(config, root):
+def delete_empty_folders(config):
     """Delete all empty folders under root (excluding root)"""
     empty_folder_count = 0
+    root = os.getcwd()
     for path, directories, files in os.walk(root, topdown=False):
         if not files and path is not root:
             absolute_path = os.path.abspath(path)
@@ -125,92 +223,21 @@ def delete_empty_folders(config, root):
     return empty_folder_count
 
 
-def shell_execute(command):
-    """ Run a shell command
-
-    :command: the shell command to run
-    :returns: None if command fail else the command output
-
-    """
-    try:
-        result = subprocess.check_output(command.split())
-    except subprocess.CalledProcessError:
-        # Do nothing, the error is already sent to stderr
-        return None
-    return result
-
-
-def is_inside_perforce_workspace():
-    """Return True if path inside current workspace."""
-    where = shell_execute("p4 where")
-    if where is None:
-        return False
-    return True
-
-
-def get_perforce_root():
-    """ Return the perforce root. """
-    try:
-        info = shell_execute("p4 info")
-    except Exception:
-        print "Perforce is unavailable:", sys.exc_info()
-        return None
-    info_lines = info.split('\n')
-    for information in info_lines:
-        if information.startswith('Client root:'):
-            root = information[12:]
-            # filter space, line feed and line return.
-            root = root.strip(' /\r\n')
-            return os.path.normpath(root)
-    print "Invalid 'p4 info' result"
-    return None
-
-
-def get_perforce_status(path):
-    """ Return the output of calling the command line 'p4 status'. """
-    old_path = os.getcwd()
-    try:
-        os.chdir(path)
-        return shell_execute("p4 status")
-    except Exception:
-        print "Unexpected error:", sys.exc_info()
-        return None
-    finally:
-        os.chdir(old_path)
-
-
-def compute_files_to_delete(status, config):
-    """ Parse the perforce status and return a list of files to delete. """
-    status_lines = status.split('\n')
-    files_to_delete = []
-    for filename in status_lines:
-        if re.match('.*reconcile to add.*', filename):
-            filename = re.sub(r"\s-\s.*$", "", filename)
-            filename = filename.strip()
-            if not config.is_excluded(filename):
-                files_to_delete.append(filename)
-    return files_to_delete
-
-
-def delete_files(files_list):
-    for filename in files_list:
-        os.remove(filename)
-        print "File '%s' deleted" % filename
-
-
-def delete_untracked_files(config, path):
-    perforce_status = get_perforce_status(path)
-    if not perforce_status:
-        print "Perforce error. Version 2012.1 or higher is required"
-        return 0
-    files_to_delete = compute_files_to_delete(perforce_status, config)
-    delete_files(files_to_delete)
-    return len(files_to_delete)
+def delete_untracked_files(perforce, config):
+    deleted_count = 0
+    for filename in perforce.get_untracked_files(os.getcwd()):
+        if not config.is_excluded(filename):
+            os.remove(filename)
+            print "File '%s' deleted" % filename
+            deleted_count = deleted_count + 1
+    return deleted_count
 
 
 def main():
 
-    if not is_inside_perforce_workspace():
+    perforce = Perforce()
+
+    if not perforce.is_inside_perforce_workspace():
         return
 
     parser = argparse.ArgumentParser()
@@ -219,10 +246,10 @@ def main():
                         help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
     args = parser.parse_args()
 
-    config = P4CleanConfig(get_perforce_root(), args.exclude)
+    config = P4CleanConfig(perforce.root, args.exclude)
 
-    deleted_files_count = delete_untracked_files(config, ".")
-    deleted_folders_count = delete_empty_folders(config, ".")
+    deleted_files_count = delete_untracked_files(perforce, config)
+    deleted_folders_count = delete_empty_folders(config)
 
     print 80 * "-"
     print "P4Clean summary:"
