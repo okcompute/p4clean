@@ -171,12 +171,13 @@ class P4CleanConfig(object):
     def config_file_path(self, root):
         """ Return absolute config file path. Return None if non-existent."""
         path = os.getcwd()
+        root = os.path.abspath(root)
         while True:
             config_file = os.path.join(path, '.p4clean')
             if os.path.exists(config_file):
                 return config_file
             else:
-                if path.lower() == root.lower():
+                if path.lower() == root.lower() or path == '/':
                     return None
                 else:
                     path = os.path.dirname(path)
