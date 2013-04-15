@@ -46,7 +46,7 @@ def shell_execute(command):
 
     """
     try:
-        result = subprocess.check_output(command.split())
+        result = subprocess.check_output(command.split(), stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
         # Do nothing, the error is already sent to stderr
         return None
@@ -101,7 +101,22 @@ class Perforce(object):
         return True
 
     def get_untracked_files(self, root):
-        raise NotImplementedError("TBD")
+        untracked_files = []
+        for path, directories, files in os.walk(root):
+            for file in files:
+                filename = os.path.join(path, file)
+                fstat = self._get_perforce_fstat(filename).lower()
+                if not fstat.startswith('.'):
+                    untracked_files.append(filename)
+        return untracked_files
+
+    def _get_perforce_fstat(self, file):
+        # get version
+        try:
+            return  shell_execute("p4 fstat -T haveRev " + file)
+        except Exception:
+            print "Perforce is unavailable:", sys.exc_info()
+            return (None, None)
 
 
 class Perforce2012(Perforce):
@@ -159,7 +174,7 @@ class P4CleanConfig(object):
         exclusion_list = itertools.chain(args_exclusion_list,
                                          config_exclusion_list)
         exclusion_list = list(exclusion_list)
-        exclusion_list.append(P4CleanConfig.CONFIG_FILENAME)
+        exclusion_list.append('*/' + P4CleanConfig.CONFIG_FILENAME)
         self.exclusion_regex = self.compute_regex(exclusion_list)
 
     def compute_regex(self, exclusion_list):

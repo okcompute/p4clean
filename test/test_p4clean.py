@@ -1,7 +1,6 @@
 import pytest
 import shutil
 import os
-import itertools
 import p4clean
 from minimock import mock
 from minimock import restore
@@ -13,6 +12,37 @@ def unused():
     """ unused function to make linter complain about unused import"""
     ConfigParser()
     __builtin__.open()
+
+
+def test_perforce_get_untracked_files():
+
+    # def Perforce2012_init():
+    #     pass
+
+    def Perforce_get_perforce_fstat(path):
+        return "blarg - no such file(s).\n \
+        test - no such file(s).\n \
+        test.log - no such file(s).\n \
+        ... haveRev 1"
+
+    def Perforce_info():
+        return (2010, 'dummy')
+
+    def os_walk(root):
+        # emulate a directory hiearchy
+        return [("path", ['blarg', 'test'], ['test.log'])]
+
+    mock('p4clean.Perforce.info', returns_func=Perforce_info)
+    mock('p4clean.Perforce._get_perforce_fstat',
+         returns_func=Perforce_get_perforce_fstat)
+    mock('os.walk', returns_func=os_walk)
+
+    untracked_files = p4clean.Perforce().get_untracked_files("dummy")
+
+    restore()
+
+    assert len(untracked_files) == 1, "Unexpected numbers of files to delete"
+    assert "path/test.log" in untracked_files, "Expected file not found"
 
 
 def test_perforce_2012_get_untracked_files():
