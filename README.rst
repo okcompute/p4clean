@@ -3,13 +3,13 @@ P4clean
 
 About
 -----
-P4clean returns a folder tree inside a local Perfoce workspace to its original state by deleting untracked files and removing all empty folders.
+P4clean returns a folder tree inside a local Perfoce workspace to its original state by deleting untracked files and removing all empty folders. An exclusion list can be set so untracked development files are not deleted.
 
-**Warning**: This tool is to be used only if you are confident untracked files can be deleted. Otherwise on\ Perforce 2012 and more, 'p4 reconcile' may be a better choice.
+**Warning**: This tool is to be used only if you are confident untracked files can be deleted. Otherwise 'p4 reconcile' (Perforce 2012.1 and later) may be a better choice.
 
 Requirements
 ------------
-Since 'p4 status' is used under the hood, Perforce server and command line tools must be installed.
+Perforce server and command line tools must be installed.
 
 Installation
 ------------
