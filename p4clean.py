@@ -35,7 +35,7 @@ import ConfigParser
 import itertools
 import logging
 
-__version__ = '0.0.4'
+__version__ = '0.0.5'
 
 
 def shell_execute(command):
