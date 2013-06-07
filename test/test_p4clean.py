@@ -20,17 +20,16 @@ def test_perforce_get_untracked_files():
     #     pass
 
     def Perforce_get_perforce_fstat(path):
-        return "blarg - no such file(s).\n \
-        test - no such file(s).\n \
-        test.log - no such file(s).\n \
-        ... haveRev 1"
+        return "... clientFile /path/test.log \n \
+                ... clientFile /path/blarg/file.txt \n \
+                ... clientFile /path/path2/code.c "
 
     def Perforce_info():
         return (2010, 'dummy')
 
     def os_walk(root):
         # emulate a directory hiearchy
-        return [("path", ['blarg', 'test'], ['test.log'])]
+        return [("/path", ['blarg', 'test'], ['test.log', 'newfile.c', 'newfile.h'])]
 
     mock('p4clean.Perforce.info', returns_func=Perforce_info)
     mock('p4clean.Perforce._get_perforce_fstat',
@@ -41,14 +40,18 @@ def test_perforce_get_untracked_files():
 
     restore()
 
-    assert len(untracked_files) == 1, "Unexpected numbers of files to delete"
-    assert "path/test.log" in untracked_files, "Expected file not found"
+    assert len(untracked_files) == 2, "Unexpected numbers of files to delete"
+    assert "/path/newfile.c" in untracked_files, "Expected file not found"
+    assert "/path/newfile.h" in untracked_files, "Expected file not found"
 
 
 def test_perforce_2012_get_untracked_files():
 
     def Perforce2012_init():
         pass
+
+    def Perforce_info():
+        return (2012, "//")
 
     def Perforce2012_get_perforce_status(path):
         return "new_folder/haha.txt - reconcile to add \
@@ -60,6 +63,7 @@ def test_perforce_2012_get_untracked_files():
             test.log - reconcile to add //depot/p4clean/test.log#1"
 
     mock('p4clean.Perforce2012.__init__', returns_func=Perforce2012_init)
+    mock('p4clean.Perforce.info', returns_func=Perforce_info)
     mock('p4clean.Perforce2012._get_perforce_status',
          returns_func=Perforce2012_get_perforce_status)
 
@@ -81,9 +85,12 @@ def test_parse_config_file():
     config = p4clean.P4CleanConfig()
     restore()
 
-    path = os.path.abspath('./test/data/.p4clean')
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        'data',
+                        '.p4clean')
     exclusion_list = config.parse_config_file(path)
 
+    assert exclusion_list, "exclusion list should not be empty"
     assert '*.txt' in exclusion_list, "exclusion pattern should be in list"
     assert 'test.cpp' in exclusion_list, "exclusion pattern should be in list"
     assert '*.log' in exclusion_list, "exclusion pattern should be in list"
@@ -108,7 +115,9 @@ def test_p4clean_config_constructor():
     """ Test the construction of a P4CleanConfig object. Note: this uses a sample
     .p4clean file located in /test/data folder"""
     def P4CleanConfig_config_file_path(perforce_root):
-        return os.getcwd() + '/test/data/.p4clean'
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'data',
+                            '.p4clean')
 
     mock('p4clean.P4CleanConfig.config_file_path',
          returns_func=P4CleanConfig_config_file_path)
@@ -144,7 +153,7 @@ def test_config_file_path():
         pass
 
     old_cwd = os.getcwd()
-    os.chdir(os.getcwd() + '/test/data')
+    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'))
 
     mock('p4clean.P4CleanConfig.__init__', returns_func=P4CleanConfig_init)
     config = p4clean.P4CleanConfig()
@@ -153,8 +162,9 @@ def test_config_file_path():
     path = config.config_file_path('')
     os.chdir(old_cwd)
 
-    assert path == os.getcwd(
-    ) + '/test/data/.p4clean', "Unexpected config file path"
+    assert path == os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'data',
+                                '.p4clean'), "Unexpected config file path"
 
 
 def test_config_file_path_empty():

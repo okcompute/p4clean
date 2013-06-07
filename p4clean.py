@@ -25,6 +25,7 @@
 """
 
 import os
+import stat
 import sys
 import argparse
 import errno
@@ -32,7 +33,6 @@ import subprocess
 import re
 import fnmatch
 import ConfigParser
-import itertools
 import logging
 
 __version__ = '0.0.5'
@@ -101,22 +101,25 @@ class Perforce(object):
         return True
 
     def get_untracked_files(self, root):
-        untracked_files = []
+        local_files = []
         for path, directories, files in os.walk(root):
             for file in files:
-                filename = os.path.join(path, file)
-                fstat = self._get_perforce_fstat(filename).lower()
-                if not fstat.startswith('.'):
-                    untracked_files.append(filename)
-        return untracked_files
+                local_files.append(os.path.join(path, file).lower())
+        fstat = self._get_perforce_fstat(root)
+        depot_files = []
+        for line in fstat.splitlines():
+            if line:
+                depot_files.append(os.path.normpath(line.lstrip("... clientFile").strip().lower()))
+        untracked_files = set(local_files) - set(depot_files)
+        return list(untracked_files)
 
-    def _get_perforce_fstat(self, file):
+    def _get_perforce_fstat(self, root):
         # get version
         try:
-            return  shell_execute("p4 fstat -T haveRev " + file)
+            return shell_execute("p4 fstat -Rh -T clientFile " + root + "\\...")
         except Exception:
             print "Perforce is unavailable:", sys.exc_info()
-            return (None, None)
+            return None
 
 
 class Perforce2012(Perforce):
@@ -171,10 +174,10 @@ class P4CleanConfig(object):
             args_exclusion_list = exclusion.split(';')
 
         # chain args and config file exclusion lists
-        exclusion_list = itertools.chain(args_exclusion_list,
-                                         config_exclusion_list)
-        exclusion_list = list(exclusion_list)
+        exclusion_list = args_exclusion_list + config_exclusion_list
+        # Exlude p4clean config file (path for *nix + windows)
         exclusion_list.append('*/' + P4CleanConfig.CONFIG_FILENAME)
+        exclusion_list.append('*\\' + P4CleanConfig.CONFIG_FILENAME)
         self.exclusion_regex = self.compute_regex(exclusion_list)
 
     def compute_regex(self, exclusion_list):
@@ -237,7 +240,7 @@ class P4Clean:
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
 
-        deleted_files_count = self.delete_untracked_files()
+        (deleted_files_count, deleted_error_count) = self.delete_untracked_files()
         deleted_folders_count = self.delete_empty_folders()
 
         print 80 * "-"
@@ -245,6 +248,8 @@ class P4Clean:
         print 80 * "-"
         print "%d untracked files deleted." % deleted_files_count
         print "%d empty folders deleted." % deleted_folders_count
+        if deleted_error_count > 0:
+            print "%s files could not be deleted" % deleted_error_count
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
@@ -256,7 +261,7 @@ class P4Clean:
                 if not self.config.is_excluded(absolute_path):
                     try:
                         os.rmdir(absolute_path)
-                        print "Folder '%s' deleted" % absolute_path
+                        print "Folder deleted: '%s' " % absolute_path
                         empty_folder_count = empty_folder_count + 1
                     except OSError, e:
                         if e.errno == errno.ENOTEMPTY:
@@ -265,12 +270,20 @@ class P4Clean:
 
     def delete_untracked_files(self):
         deleted_count = 0
+        error_count = 0
         for filename in self.perforce.get_untracked_files(os.getcwd()):
             if not self.config.is_excluded(filename):
-                os.remove(filename)
-                print "File '%s' deleted" % filename
-                deleted_count = deleted_count + 1
-        return deleted_count
+                # Make sure the file is writable before deleting otherwise the
+                # delete process fails
+                os.chmod(filename, stat.S_IWRITE)
+                try:
+                    os.remove(filename)
+                    print "Deleted file: '%s' " % filename
+                    deleted_count = deleted_count + 1
+                except:
+                    print "Cannot delete file (%s)" % sys.exc_info()[1]
+                    error_count = error_count + 1
+        return (deleted_count, error_count)
 
 
 def main():
