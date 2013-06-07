@@ -78,6 +78,9 @@ class Perforce(object):
         except Exception:
             print "Perforce is unavailable:", sys.exc_info()
             return (None, None)
+        if not info:
+            print "Perforce is unavailable"
+            return (None, None)
         root = None
         version = None
         info_lines = info.lower().split('\n')
@@ -227,16 +230,20 @@ class P4CleanConfig(object):
 class P4Clean:
     """ Restore current working folder and subfolder to orginal state."""
     def __init__(self):
-        self.perforce = Perforce()
-
-        if not self.perforce.is_inside_perforce_workspace():
-            return
 
         parser = argparse.ArgumentParser()
         parser.add_argument("--exclude",
                             default=None,
                             help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
+        parser.add_argument('-V', '--version',
+                            action='version',
+                            version="p4clean version %s" % __version__)
         args = parser.parse_args()
+
+        self.perforce = Perforce()
+
+        if not self.perforce.is_inside_perforce_workspace():
+            return
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
 
