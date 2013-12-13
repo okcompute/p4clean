@@ -35,7 +35,7 @@ import fnmatch
 import ConfigParser
 import logging
 
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 
 
 def shell_execute(command):
@@ -117,12 +117,21 @@ class Perforce(object):
         return list(untracked_files)
 
     def _get_perforce_fstat(self, root):
-        # get version
+        result = ""
+        # Get all file at current version synced by the client (-Rh)
         try:
-            return shell_execute("p4 fstat -Rh -T clientFile " + root + "\\...")
+            result = result + shell_execute("p4 fstat -Rh -T clientFile " + root + "\\...")
         except Exception:
             print "Perforce is unavailable:", sys.exc_info()
             return None
+        # Add all opened files. This will make sure file opened for add don't
+        # get cleaned
+        try:
+            result = result + shell_execute("p4 fstat -Ro -T clientFile " + root + "\\...")
+        except Exception:
+            print "Perforce is unavailable:", sys.exc_info()
+            return None
+        return result
 
 
 class Perforce2012(Perforce):
@@ -247,7 +256,7 @@ class P4Clean:
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
 
-        (deleted_files_count, deleted_error_count) = self.delete_untracked_files()
+        (deleted_files_count, deleted_error_count, delete_error_msgs) = self.delete_untracked_files()
         deleted_folders_count = self.delete_empty_folders()
 
         print 80 * "-"
@@ -257,6 +266,7 @@ class P4Clean:
         print "%d empty folders deleted." % deleted_folders_count
         if deleted_error_count > 0:
             print "%s files could not be deleted" % deleted_error_count
+            print delete_error_msgs
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
@@ -278,6 +288,7 @@ class P4Clean:
     def delete_untracked_files(self):
         deleted_count = 0
         error_count = 0
+        error_msgs = []
         for filename in self.perforce.get_untracked_files(os.getcwd()):
             if not self.config.is_excluded(filename):
                 # Make sure the file is writable before deleting otherwise the
@@ -288,9 +299,9 @@ class P4Clean:
                     print "Deleted file: '%s' " % filename
                     deleted_count = deleted_count + 1
                 except:
-                    print "Cannot delete file (%s)" % sys.exc_info()[1]
+                    error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
                     error_count = error_count + 1
-        return (deleted_count, error_count)
+        return (deleted_count, error_count, error_msgs)
 
 
 def main():
