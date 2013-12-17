@@ -35,7 +35,7 @@ import fnmatch
 import ConfigParser
 import logging
 
-__version__ = '0.0.8'
+__version__ = '0.0.9'
 
 
 def shell_execute(command):
@@ -252,6 +252,8 @@ class P4Clean:
         self.perforce = Perforce()
 
         if not self.perforce.is_inside_perforce_workspace():
+            print "Nothing to clean: Current folder is not inside a Perforce workspace. \
+                   \nValidate your perforce workspace with the command 'p4 where' or configure you command line workspace."
             return
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
