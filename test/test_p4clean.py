@@ -287,13 +287,13 @@ def test_delete_empty_folders_error_count():
     instance.config = FakeConfig()
 
     # the tested function call
-    deleted_count, error_count = instance.delete_empty_folders()
+    deleted_count, error_msgs = instance.delete_empty_folders()
 
     os.chdir(old_cwd)
     restore()
 
     assert deleted_count == 0, "No folder should have been deleted"
-    assert error_count == 2, "All folders should have thrown an error"
+    assert len(error_msgs) == 2, "All folders should have thrown an error"
 
     shutil.rmtree(root_folder)
 

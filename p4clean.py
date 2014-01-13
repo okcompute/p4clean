@@ -34,7 +34,7 @@ import fnmatch
 import ConfigParser
 import logging
 
-__version__ = '0.0.7'
+__version__ = '0.0.9'
 
 
 def shell_execute(command):
@@ -96,7 +96,7 @@ class Perforce(object):
                 version = int(version)
         return (version, root)
 
-    def is_inside_perforce_workspace(self):
+    def is_inside_workspace(self):
         """Return True if path inside current workspace."""
         where = shell_execute("p4 where")
         if where is None:
@@ -118,12 +118,21 @@ class Perforce(object):
         return list(untracked_files)
 
     def _get_perforce_fstat(self, root):
-        # get version
+        result = ""
+        # Get all file at current version synced by the client (-Rh)
         try:
-            return shell_execute("p4 fstat -Rh -T clientFile " + root + "\\...")
+            result = result + shell_execute("p4 fstat -Rh -T clientFile " + root + "\\...")
         except Exception:
             print "Perforce is unavailable:", sys.exc_info()
             return None
+        # Add all opened files. This will make sure file opened for add don't
+        # get cleaned
+        try:
+            result = result + shell_execute("p4 fstat -Ro -T clientFile " + root + "\\...")
+        except Exception:
+            print "Perforce is unavailable:", sys.exc_info()
+            return None
+        return result
 
 
 class Perforce2012(Perforce):
@@ -243,30 +252,33 @@ class P4Clean:
 
         self.perforce = Perforce()
 
-        if not self.perforce.is_inside_perforce_workspace():
+        if not self.perforce.is_inside_workspace():
+            print "Nothing to clean: Current folder is not inside a Perforce workspace. \
+                   \nValidate your perforce workspace with the command 'p4 where' or configure you command line workspace."
             return
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
 
-        (deleted_files_count,
-         deleted_file_error_count) = self.delete_untracked_files()
-        (deleted_folders_count,
-         deleted_folder_error_count) = self.delete_empty_folders()
+        (deleted_files_count, file_error_msgs) = self.delete_untracked_files()
+
+        (deleted_folders_count, folder_error_msgs) = self.delete_empty_folders()
 
         print 80 * "-"
         print "P4Clean summary:"
         print 80 * "-"
         print "%d untracked files deleted." % deleted_files_count
         print "%d empty folders deleted." % deleted_folders_count
-        if deleted_file_error_count > 0:
-            print "%s files could not be deleted" % deleted_file_error_count
-        if deleted_folder_error_count > 0:
-            print "%s empty folders could not be deleted" % deleted_folder_error_count
+        if file_error_msgs:
+            print "%s files could not be deleted" % len(file_error_msgs)
+            print file_error_msgs
+        if folder_error_msgs:
+            print "%s empty folders could not be deleted" % len(folder_error_msgs)
+            print folder_error_msgs
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
-        empty_folder_count = 0
-        error_count = 0
+        deleted_count = 0
+        error_msgs = []
         root = os.getcwd()
         for path, directories, files in os.walk(root, topdown=False):
             if not files and path is not root:
@@ -276,15 +288,14 @@ class P4Clean:
                         try:
                             os.rmdir(absolute_path)
                             print "Folder deleted: '%s' " % absolute_path
-                            empty_folder_count = empty_folder_count + 1
+                            deleted_count = deleted_count + 1
                         except Exception:
-                            print "Cannot delete empty folder (%s)" % sys.exc_info()[1]
-                            error_count = error_count + 1
-        return empty_folder_count, error_count
+                            error_msgs.append("Cannot delete empty folder (%s)" % sys.exc_info()[1])
+        return deleted_count, error_msgs
 
     def delete_untracked_files(self):
         deleted_count = 0
-        error_count = 0
+        error_msgs = []
         for filename in self.perforce.get_untracked_files(os.getcwd()):
             if not self.config.is_excluded(filename):
                 # Make sure the file is writable before deleting otherwise the
@@ -295,9 +306,8 @@ class P4Clean:
                     print "Deleted file: '%s' " % filename
                     deleted_count = deleted_count + 1
                 except:
-                    print "Cannot delete file (%s)" % sys.exc_info()[1]
-                    error_count = error_count + 1
-        return (deleted_count, error_count)
+                    error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
+        return deleted_count, error_msgs
 
 
 def main():
