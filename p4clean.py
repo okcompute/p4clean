@@ -34,7 +34,7 @@ import fnmatch
 import ConfigParser
 import logging
 
-__version__ = '0.0.9'
+__version__ = '0.1.0'
 
 
 def shell_execute(command):
