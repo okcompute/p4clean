@@ -245,6 +245,59 @@ def test_delete_empty_folders():
     shutil.rmtree(root_folder)
 
 
+def test_delete_empty_folders_error_count():
+    """ Test the method `delete_empty_folders` returns the correct errors count
+    when os.rmdir() raise exceptions. """
+
+    root_folder = os.tmpnam()
+
+    # Create 3 empty folders
+    os.mkdir(root_folder)
+    os.mkdir(root_folder + '/folderA')
+    os.mkdir(root_folder + '/folderB')
+    os.mkdir(root_folder + '/folderC')
+
+    def create_file(root, path):
+        temp_file_path = root + '/' + path
+        temp_file = open(temp_file_path, "wb")
+        temp_file.write("")
+        temp_file.close()
+
+    # populate random folders with one file
+    create_file(root_folder, 'folderA/temp.txt')
+
+    old_cwd = os.getcwd()
+    os.chdir(root_folder)
+
+    class FakeConfig(object):
+        def is_excluded(self, path):
+            return False
+
+    def P4Clean_init():
+        pass
+
+    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
+
+    def mock_rmdir(path):
+        raise Exception
+
+    mock('os.rmdir', returns_func=mock_rmdir)
+
+    instance = p4clean.P4Clean()
+    instance.config = FakeConfig()
+
+    # the tested function call
+    deleted_count, error_count = instance.delete_empty_folders()
+
+    os.chdir(old_cwd)
+    restore()
+
+    assert deleted_count == 0, "No folder should have been deleted"
+    assert error_count == 2, "All folders should have thrown an error"
+
+    shutil.rmtree(root_folder)
+
+
 def test_get_perforce_status():
     pass  # We don't test method because we assume that Perfoce is correct.
     # status = p4clean.get_perforce_status('/Users/okcompute/Developer/Perforce/p4clean')

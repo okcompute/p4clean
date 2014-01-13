@@ -28,7 +28,6 @@ import os
 import stat
 import sys
 import argparse
-import errno
 import subprocess
 import re
 import fnmatch
@@ -46,7 +45,8 @@ def shell_execute(command):
 
     """
     try:
-        result = subprocess.check_output(command.split(), stderr=subprocess.STDOUT)
+        result = subprocess.check_output(command.split(),
+                                         stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError:
         # Do nothing, the error is already sent to stderr
         return None
@@ -112,7 +112,8 @@ class Perforce(object):
         depot_files = []
         for line in fstat.splitlines():
             if line:
-                depot_files.append(os.path.normpath(line.lstrip("... clientFile").strip().lower()))
+                depot_files.append(os.path.normpath(
+                    line.lstrip("... clientFile").strip().lower()))
         untracked_files = set(local_files) - set(depot_files)
         return list(untracked_files)
 
@@ -247,33 +248,39 @@ class P4Clean:
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
 
-        (deleted_files_count, deleted_error_count) = self.delete_untracked_files()
-        deleted_folders_count = self.delete_empty_folders()
+        (deleted_files_count,
+         deleted_file_error_count) = self.delete_untracked_files()
+        (deleted_folders_count,
+         deleted_folder_error_count) = self.delete_empty_folders()
 
         print 80 * "-"
         print "P4Clean summary:"
         print 80 * "-"
         print "%d untracked files deleted." % deleted_files_count
         print "%d empty folders deleted." % deleted_folders_count
-        if deleted_error_count > 0:
-            print "%s files could not be deleted" % deleted_error_count
+        if deleted_file_error_count > 0:
+            print "%s files could not be deleted" % deleted_file_error_count
+        if deleted_folder_error_count > 0:
+            print "%s empty folders could not be deleted" % deleted_folder_error_count
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
         empty_folder_count = 0
+        error_count = 0
         root = os.getcwd()
         for path, directories, files in os.walk(root, topdown=False):
             if not files and path is not root:
                 absolute_path = os.path.abspath(path)
                 if not self.config.is_excluded(absolute_path):
-                    try:
-                        os.rmdir(absolute_path)
-                        print "Folder deleted: '%s' " % absolute_path
-                        empty_folder_count = empty_folder_count + 1
-                    except OSError, e:
-                        if e.errno == errno.ENOTEMPTY:
-                            pass
-        return empty_folder_count
+                    if not os.listdir(absolute_path):
+                        try:
+                            os.rmdir(absolute_path)
+                            print "Folder deleted: '%s' " % absolute_path
+                            empty_folder_count = empty_folder_count + 1
+                        except Exception:
+                            print "Cannot delete empty folder (%s)" % sys.exc_info()[1]
+                            error_count = error_count + 1
+        return empty_folder_count, error_count
 
     def delete_untracked_files(self):
         deleted_count = 0
