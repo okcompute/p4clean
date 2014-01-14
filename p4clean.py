@@ -270,10 +270,10 @@ class P4Clean:
         print "%d empty folders deleted." % deleted_folders_count
         if file_error_msgs:
             print "%s files could not be deleted" % len(file_error_msgs)
-            print file_error_msgs
+            print "\n".join(file_error_msgs)
         if folder_error_msgs:
             print "%s empty folders could not be deleted" % len(folder_error_msgs)
-            print folder_error_msgs
+            print "\n".join(folder_error_msgs)
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
