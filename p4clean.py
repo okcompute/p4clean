@@ -34,7 +34,7 @@ import fnmatch
 import ConfigParser
 import logging
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 
 def shell_execute(command):
@@ -298,10 +298,10 @@ class P4Clean:
         error_msgs = []
         for filename in self.perforce.get_untracked_files(os.getcwd()):
             if not self.config.is_excluded(filename):
-                # Make sure the file is writable before deleting otherwise the
-                # delete process fails
-                os.chmod(filename, stat.S_IWRITE)
                 try:
+                    # Make sure the file is writable before deleting otherwise the
+                    # delete process fails
+                    os.chmod(filename, stat.S_IWRITE)
                     os.remove(filename)
                     print "Deleted file: '%s' " % filename
                     deleted_count = deleted_count + 1
