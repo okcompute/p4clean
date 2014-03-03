@@ -121,14 +121,14 @@ class Perforce(object):
         result = ""
         # Get all file at current version synced by the client (-Rh)
         try:
-            result = result + shell_execute("p4 fstat -Rh -T clientFile " + root + "\\...")
+            result = result + shell_execute("p4 fstat -Rh -T clientFile " + os.path.join(root, "..."))
         except Exception:
             print "Perforce is unavailable:", sys.exc_info()
             return None
         # Add all opened files. This will make sure file opened for add don't
         # get cleaned
         try:
-            result = result + shell_execute("p4 fstat -Ro -T clientFile " + root + "\\...")
+            result = result + shell_execute("p4 fstat -Ro -T clientFile " + os.path.join(root, "..."))
         except Exception:
             print "Perforce is unavailable:", sys.exc_info()
             return None
