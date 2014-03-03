@@ -1,9 +1,13 @@
 import pytest
 import shutil
+import stat
 import os
 import p4clean
-from minimock import mock
-from minimock import restore
+from minimock import (
+    mock,
+    Mock,
+    restore,
+)
 import ConfigParser
 import __builtin__
 
@@ -305,7 +309,186 @@ def test_get_perforce_status():
 
 
 def test_delete_untracked_files():
-    "No test needed. This function is too simple."
-    pass
+    """ Test P4Clean.delete_untracked_files method."""
+
+    root_folder = os.tmpnam()
+
+    # Create a folder tree
+    os.mkdir(root_folder)
+    os.mkdir(root_folder + '/folder')
+
+    old_cwd = os.getcwd()
+    os.chdir(root_folder)
+
+    def create_file(root, path):
+        temp_file_path = root + '/' + path
+        temp_file = open(temp_file_path, "wb")
+        temp_file.write("")
+        temp_file.close()
+
+    # populate random folders with one file
+    create_file(root_folder, 'folder/tempA.txt')
+    create_file(root_folder, 'folder/tempB.txt')
+    create_file(root_folder, 'folder/tempC.txt')
+
+    class FakeConfig(object):
+        def is_excluded(self, path):
+            return False
+
+    class FakePerforce(object):
+        def get_untracked_files(self, path):
+            return [root_folder + "/folder/tempA.txt",
+                    root_folder + "/folder/tempB.txt"]
+
+    def P4Clean_init():
+        pass
+
+    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
+
+    Perforce = Mock('P4Clean.Perforce')
+    Perforce.mock_returns = Mock('perforce')
+
+    instance = p4clean.P4Clean()
+    instance.config = FakeConfig()
+    instance.perforce = FakePerforce()
+
+    # the tested function call
+    count, msgs = instance.delete_untracked_files()
+
+    os.chdir(old_cwd)
+    restore()
+
+    assert count == 2, "Invalid deleted file count"
+    assert not os.path.exists(root_folder + '/folder/tempA.txt'), "File should have been deleted"
+    assert not os.path.exists(root_folder + '/folder/tempB.txt'), "File should have been deleted"
+    assert os.path.exists(root_folder + '/folder/tempC.txt'), "File should not have been deleted"
+
+    shutil.rmtree(root_folder)
+
+
+def test_delete_untracked_files_on_symlinks():
+    """ Test P4Clean.delete_untracked_files method will not delete files
+    targeted by a symlinks. Only the symlink itself will be removed. """
+    root_folder = os.tmpnam()
+
+    # Create a folder tree
+    os.mkdir(root_folder)
+    os.mkdir(root_folder + '/folder')
+
+    old_cwd = os.getcwd()
+    os.chdir(root_folder)
+
+    def create_file(root, path):
+        temp_file_path = root + '/' + path
+        temp_file = open(temp_file_path, "wb")
+        temp_file.write("")
+        temp_file.close()
+
+    # populate random folders with one file
+    create_file(root_folder, '/tempA.txt')
+
+    os.symlink(root_folder + '/tempA.txt', root_folder + '/folder/tempA.txt')
+
+    class FakeConfig(object):
+        def is_excluded(self, path):
+            return False
+
+    class FakePerforce(object):
+        def get_untracked_files(self, path):
+            return [root_folder + "/folder/tempA.txt"]
+
+    def P4Clean_init():
+        pass
+
+    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
+
+    Perforce = Mock('P4Clean.Perforce')
+    Perforce.mock_returns = Mock('perforce')
+
+    instance = p4clean.P4Clean()
+    instance.config = FakeConfig()
+    instance.perforce = FakePerforce()
+
+    # the tested function call
+    count, msgs = instance.delete_untracked_files()
+
+    os.chdir(old_cwd)
+    restore()
+
+    assert count == 1, "Invalid deleted file count"
+    assert not os.path.exists(root_folder + '/folder/tempA.txt'), "Symlink should have been deleted"
+    assert os.path.exists(root_folder + '/tempA.txt'), "File pointed by symlink should still exist."
+
+    shutil.rmtree(root_folder)
+
+
+def test_symlinks_source_file_mode_does_not_change():
+    """ Test P4Clean.delete_untracked_files method will not change the file
+    mode for source of a symlinked file."""
+    root_folder = os.tmpnam()
+
+    # Create a folder tree
+    os.mkdir(root_folder)
+    os.mkdir(root_folder + '/folder')
+
+    old_cwd = os.getcwd()
+    os.chdir(root_folder)
+
+    def create_file(root, path):
+        temp_file_path = root + '/' + path
+        temp_file = open(temp_file_path, "wb")
+        temp_file.write("")
+        temp_file.close()
+
+    # populate random folders with one file
+    create_file(root_folder, '/tempA.txt')
+    create_file(root_folder, '/folder/tempB.txt')
+
+    # Change the file permissions to read-only
+    os.chmod(root_folder + '/tempA.txt', stat.S_IREAD)
+    # Backup file A mode
+    st_mode = os.stat(root_folder + '/tempA.txt').st_mode
+
+    # Make file Read only too
+    os.chmod(root_folder + '/folder/tempB.txt', stat.S_IREAD)
+
+    # Create a symlink on read-only file
+    os.symlink(root_folder + '/tempA.txt', root_folder + '/folder/tempA.txt')
+
+    class FakeConfig(object):
+        def is_excluded(self, path):
+            return False
+
+    class FakePerforce(object):
+        def get_untracked_files(self, path):
+            return [root_folder + "/folder/tempA.txt",
+                    root_folder + "/folder/tempB.txt"]
+
+    def P4Clean_init():
+        pass
+
+    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
+
+    Perforce = Mock('P4Clean.Perforce')
+    Perforce.mock_returns = Mock('perforce')
+
+    instance = p4clean.P4Clean()
+    instance.config = FakeConfig()
+    instance.perforce = FakePerforce()
+
+    # the tested function call
+    count, msgs = instance.delete_untracked_files()
+
+    os.chdir(old_cwd)
+    restore()
+
+    assert count == 2, "Invalid deleted file count"
+    assert not os.path.exists(root_folder + '/folder/tempA.txt'), "Symlink should have been deleted."
+    assert not os.path.exists(root_folder + '/folder/tempB.txt'), "Read-only file should have been deleted."
+    assert os.path.exists(root_folder + '/tempA.txt'), "File pointed by symlink should still exist."
+    assert os.stat(root_folder + '/tempA.txt').st_mode == st_mode, "File pointed by symlink should still have same mode."
+
+    shutil.rmtree(root_folder)
+
 
 pytest.main()

@@ -301,7 +301,7 @@ class P4Clean:
                 try:
                     # Make sure the file is writable before deleting otherwise the
                     # delete process fails
-                    os.chmod(filename, stat.S_IWRITE)
+                    os.lchmod(filename, stat.S_IWRITE)
                     os.remove(filename)
                     print "Deleted file: '%s' " % filename
                     deleted_count = deleted_count + 1
