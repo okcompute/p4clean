@@ -99,20 +99,22 @@ class Perforce(object):
         return True
 
     def get_untracked_files(self, root):
+        """ Return a list of untracked files at the 'root' path. """
         local_files = []
         for path, directories, files in os.walk(root):
             for file in files:
-                local_files.append(os.path.join(path, file).lower())
+                local_files.append(os.path.join(path, file))
         fstat = self._get_perforce_fstat(root)
         depot_files = []
         for line in fstat.splitlines():
             if line:
                 depot_files.append(os.path.normpath(
-                    line.lstrip("... clientFile").strip().lower()))
+                    line.lstrip("... clientFile").strip()))
         untracked_files = set(local_files) - set(depot_files)
         return list(untracked_files)
 
     def _get_perforce_fstat(self, root):
+        """ Return Perforce status for all files under 'root' path. """
         result = ""
         # Get all file at current version synced by the client (-Rh)
         try:

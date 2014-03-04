@@ -20,9 +20,6 @@ def unused():
 
 def test_perforce_get_untracked_files():
 
-    # def Perforce2012_init():
-    #     pass
-
     def Perforce_get_perforce_fstat(path):
         return "... clientFile /path/test.log \n \
                 ... clientFile /path/blarg/file.txt \n \
@@ -47,6 +44,42 @@ def test_perforce_get_untracked_files():
     assert len(untracked_files) == 2, "Unexpected numbers of files to delete"
     assert "/path/newfile.c" in untracked_files, "Expected file not found"
     assert "/path/newfile.h" in untracked_files, "Expected file not found"
+
+
+def test_get_untracked_files_with_same_filename_different_case():
+    """ Test P4Clean differentiate untracked files with same filename but
+    different case."""
+
+    def Perforce_get_perforce_fstat(path):
+        return "... clientFile /path/readme.txt \n \
+                ... clientFile /path/README.txt \n \
+                ... clientFile /path/path2/code.c "
+
+    def Perforce_info():
+        return (2010, 'dummy')
+
+    def os_walk(root):
+        # emulate a directory hiearchy and two file with same filename but
+        # different case
+        return [("/path", [], ['test.log',
+                               'TEST.log',
+                               'readme.txt',
+                               'README.txt',
+                               'ReAdMe.TxT'])]
+
+    mock('p4clean.Perforce.info', returns_func=Perforce_info)
+    mock('p4clean.Perforce._get_perforce_fstat',
+         returns_func=Perforce_get_perforce_fstat)
+    mock('os.walk', returns_func=os_walk)
+
+    untracked_files = p4clean.Perforce().get_untracked_files("dummy")
+
+    restore()
+
+    assert len(untracked_files) == 3, "Unexpected numbers of untracked files"
+    assert "/path/test.log" in untracked_files, "Expected file not found"
+    assert "/path/TEST.log" in untracked_files, "Expected file not found"
+    assert "/path/ReAdMe.TxT" in untracked_files, "Expected file not found"
 
 
 def test_parse_config_file():
