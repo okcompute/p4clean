@@ -36,6 +36,10 @@ import logging
 
 __version__ = '0.1.1'
 
+# Use
+logging.basicConfig(format='%(message)s')
+logger = logging.getLogger('p4clean')
+
 
 def shell_execute(command):
     """ Run a shell command
@@ -67,10 +71,10 @@ class Perforce(object):
         try:
             info = shell_execute("p4 info")
         except Exception:
-            print "Perforce is unavailable:", sys.exc_info()
+            logger.exception("Perforce is unavailable:")
             return (None, None)
         if not info:
-            print "Perforce is unavailable"
+            logger.error("Perforce is unavailable")
             return (None, None)
         root = None
         version = None
@@ -114,14 +118,14 @@ class Perforce(object):
         try:
             result = result + shell_execute("p4 fstat -Rh -T clientFile " + os.path.join(root, "..."))
         except Exception:
-            print "Perforce is unavailable:", sys.exc_info()
+            logger.exception("Perforce is unavailable:")
             return None
         # Add all opened files. This will make sure file opened for add don't
         # get cleaned
         try:
             result = result + shell_execute("p4 fstat -Ro -T clientFile " + os.path.join(root, "..."))
         except Exception:
-            print "Perforce is unavailable:", sys.exc_info()
+            logger.exception("Perforce is unavailable:")
             return None
         return result
 
@@ -135,7 +139,6 @@ class P4CleanConfig(object):
 
     def __init__(self, perforce_root, exclusion=None):
         """  """
-        self.logger = logging.getLogger()
         # Look for the .p4clean file.
         config_exclusion_list = []
         config_path = self.config_file_path(perforce_root)
@@ -188,18 +191,15 @@ class P4CleanConfig(object):
                                         P4CleanConfig.EXCLUSION_OPTION)
             return exclusion_list.split(';')
         except ConfigParser.NoSectionError:
-            print "Error: Invalid p4clean config file: No section named \"%s\" found." % \
-                P4CleanConfig.SECTION_NAME
+            logger.error("Invalid p4clean config file: No section named \"%s\" found." % P4CleanConfig.SECTION_NAME)
             return []
         except ConfigParser.NoOptionError:
-            print "Error: Invalid p4clean config file: No option named \"%s\" found." % \
-                P4CleanConfig.EXCLUSION_OPTION
+            logger.error("Invalid p4clean config file: No option named \"%s\" found." % P4CleanConfig.EXCLUSION_OPTION)
             return []
 
 
 class P4Clean:
     def __init__(self):
-        self.quiet = False
         self.dry_run = False
         self.config = None
         self.perforce = Perforce()
@@ -221,12 +221,12 @@ class P4Clean:
                             version="p4clean version %s" % __version__)
         args = parser.parse_args()
 
-        self.quiet = args.quiet
         self.dry_run = args.dry_run
+        if args.quiet:
+            logger.setLevel(logger.ERROR)
 
         if not self.perforce.is_inside_workspace():
-            print "Nothing to clean: Current folder is not inside a Perforce workspace. \
-                   \nValidate your perforce workspace with the command 'p4 where' or configure you command line workspace."
+            logger.error("Nothing to clean: Current folder is not inside a Perforce workspace. Validate your perforce workspace with the command 'p4 where' or configure you command line workspace.")
             return
 
         self.config = P4CleanConfig(self.perforce.root, args.exclude)
@@ -236,18 +236,17 @@ class P4Clean:
         (deleted_folders_count, folder_error_msgs) = self.delete_empty_folders()
 
         if not self.dry_run:
-            if not self.quiet:
-                print 80 * "-"
-                print "P4Clean summary:"
-                print 80 * "-"
-                print "%d untracked files deleted." % deleted_files_count
-                print "%d empty folders deleted." % deleted_folders_count
+            logger.info(80 * "-")
+            logger.info("P4Clean summary:")
+            logger.info(80 * "-")
+            logger.info("%d untracked files deleted." % deleted_files_count)
+            logger.info("%d empty folders deleted." % deleted_folders_count)
             if file_error_msgs:
-                print "%s files could not be deleted" % len(file_error_msgs)
-                print "\n".join(file_error_msgs)
+                logger.error("%s files could not be deleted" % len(file_error_msgs))
+                logger.error("\n".join(file_error_msgs))
             if folder_error_msgs:
-                print "%s empty folders could not be deleted" % len(folder_error_msgs)
-                print "\n".join(folder_error_msgs)
+                logger.error("%s empty folders could not be deleted" % len(folder_error_msgs))
+                logger.error("\n".join(folder_error_msgs))
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
@@ -260,12 +259,11 @@ class P4Clean:
                 if not self.config.is_excluded(absolute_path):
                     if not os.listdir(absolute_path):
                         if self.dry_run:
-                            print "Would delete folder: '%s' " % absolute_path
+                            logger.info("Would delete folder: '%s' " % absolute_path)
                             continue
                         try:
                             os.rmdir(absolute_path)
-                            if not self.quiet:
-                                print "Deleted folder: '%s' " % absolute_path
+                            logger.info("Deleted folder: '%s' " % absolute_path)
                             deleted_count = deleted_count + 1
                         except Exception:
                             error_msgs.append("Cannot delete empty folder (%s)" % sys.exc_info()[1])
@@ -278,19 +276,22 @@ class P4Clean:
         for filename in self.perforce.get_untracked_files(os.getcwd()):
             if not self.config.is_excluded(filename):
                 if self.dry_run:
-                    print "Would delete file: '%s' " % filename
+                    logger.info("Would delete file: '%s' " % filename)
                     continue
                 try:
                     # Make sure the file is writable before deleting otherwise the
                     # delete process fails
                     os.lchmod(filename, stat.S_IWRITE)
                     os.remove(filename)
-                    if not self.quiet:
-                        print "Deleted file: '%s' " % filename
+                    logger.info("Deleted file: '%s'" % filename)
                     deleted_count = deleted_count + 1
                 except:
                     error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
         return deleted_count, error_msgs
 
-if __name__ == "__main__":
+
+def main():
     P4Clean().run()
+
+if __name__ == "__main__":
+    main()
