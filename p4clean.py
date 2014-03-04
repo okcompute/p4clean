@@ -54,20 +54,11 @@ def shell_execute(command):
 
 
 class Perforce(object):
-    """ Encapsulate generic perforce commands."""
-
-    def __new__(cls):
-        (version, root) = Perforce.info()
-        if version >= 2012:
-            instance = super(Perforce, cls).__new__(Perforce2012, root)
-        else:
-            instance = super(Perforce, cls).__new__(cls, root)
-
-        instance.root = root
-        return instance
+    """ Interface to Perforce."""
 
     def __init__(self):
-        pass
+        (version, root) = self.info()
+        self.root = root
 
     @staticmethod
     def info():
@@ -133,37 +124,6 @@ class Perforce(object):
             print "Perforce is unavailable:", sys.exc_info()
             return None
         return result
-
-
-class Perforce2012(Perforce):
-    """Perforce 2012 and up command"""
-
-    def __init__(self):
-        super(Perforce2012, self).__init__()
-
-    def get_untracked_files(self, root):
-        """Return list of untracked files. """
-        status = self._get_perforce_status(root)
-        status_lines = status.split('\n')
-        untracked_files = []
-        for filename in status_lines:
-            if re.match('.*reconcile to add.*', filename):
-                filename = re.sub(r"\s-\s.*$", "", filename)
-                filename = filename.strip()
-                untracked_files.append(filename)
-        return untracked_files
-
-    def _get_perforce_status(self, path):
-        """ Return the output of calling the command line 'p4 status'. """
-        old_path = os.getcwd()
-        try:
-            os.chdir(path)
-            return shell_execute("p4 status")
-        except Exception:
-            print "Unexpected error:", sys.exc_info()
-            return None
-        finally:
-            os.chdir(old_path)
 
 
 class P4CleanConfig(object):

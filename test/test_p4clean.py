@@ -49,38 +49,6 @@ def test_perforce_get_untracked_files():
     assert "/path/newfile.h" in untracked_files, "Expected file not found"
 
 
-def test_perforce_2012_get_untracked_files():
-
-    def Perforce2012_init():
-        pass
-
-    def Perforce_info():
-        return (2012, "//")
-
-    def Perforce2012_get_perforce_status(path):
-        return "new_folder/haha.txt - reconcile to add \
-            //depot/p4clean/new_folder/haha.txt#1\n \
-            test.txt - reconcile to add //depot/p4clean/test.txt#1\n \
-            test.py - reconcile to add //depot/p4clean/test.py#1\n \
-            test.c - reconcile to add //depot/p4clean/test.c#1\n \
-            test.h - reconcile to add //depot/p4clean/test.h#1\n \
-            test.log - reconcile to add //depot/p4clean/test.log#1"
-
-    mock('p4clean.Perforce2012.__init__', returns_func=Perforce2012_init)
-    mock('p4clean.Perforce.info', returns_func=Perforce_info)
-    mock('p4clean.Perforce2012._get_perforce_status',
-         returns_func=Perforce2012_get_perforce_status)
-
-    untracked_files = p4clean.Perforce2012().get_untracked_files("dummy")
-
-    restore()
-
-    assert len(untracked_files) == 6, "Unexpected numbers of files to delete"
-    assert "new_folder/haha.txt" in untracked_files, "Expected file not found"
-    assert "test.txt" in untracked_files, "Expected file not found"
-    assert "test.log" in untracked_files, "Expected file not found"
-
-
 def test_parse_config_file():
     def P4CleanConfig_init():
         pass
