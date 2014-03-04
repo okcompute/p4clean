@@ -36,6 +36,8 @@ Options::
 
     Options:
       --version             Show program's version number and exit
+      -q, --quiet           Do not print names of deleted files and folders
+      -n, --dry-run         Print names of files and folders that would be deleted
       -h, --help            Show this help message and exit
       --exclude             Semicolon separated list of file and folder patterns to be ignored from the clean-up.
 

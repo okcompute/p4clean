@@ -238,10 +238,21 @@ class P4CleanConfig(object):
 
 
 class P4Clean:
-    """ Restore current working folder and subfolder to orginal state."""
     def __init__(self):
+        self.quiet = False
+        self.dry_run = False
+        self.config = None
+        self.perforce = Perforce()
 
+    def run(self):
+        """ Restore current working folder and subfolder to orginal state."""
         parser = argparse.ArgumentParser()
+        parser.add_argument('-n', '--dry-run',
+                            action='store_true',
+                            help="print names of files and folders that would be deleted")
+        parser.add_argument('-q', '--quiet',
+                            action='store_true',
+                            help="do not print names of deleted files and folders")
         parser.add_argument("--exclude",
                             default=None,
                             help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
@@ -250,7 +261,8 @@ class P4Clean:
                             version="p4clean version %s" % __version__)
         args = parser.parse_args()
 
-        self.perforce = Perforce()
+        self.quiet = args.quiet
+        self.dry_run = args.dry_run
 
         if not self.perforce.is_inside_workspace():
             print "Nothing to clean: Current folder is not inside a Perforce workspace. \
@@ -263,17 +275,19 @@ class P4Clean:
 
         (deleted_folders_count, folder_error_msgs) = self.delete_empty_folders()
 
-        print 80 * "-"
-        print "P4Clean summary:"
-        print 80 * "-"
-        print "%d untracked files deleted." % deleted_files_count
-        print "%d empty folders deleted." % deleted_folders_count
-        if file_error_msgs:
-            print "%s files could not be deleted" % len(file_error_msgs)
-            print "\n".join(file_error_msgs)
-        if folder_error_msgs:
-            print "%s empty folders could not be deleted" % len(folder_error_msgs)
-            print "\n".join(folder_error_msgs)
+        if not self.dry_run:
+            if not self.quiet:
+                print 80 * "-"
+                print "P4Clean summary:"
+                print 80 * "-"
+                print "%d untracked files deleted." % deleted_files_count
+                print "%d empty folders deleted." % deleted_folders_count
+            if file_error_msgs:
+                print "%s files could not be deleted" % len(file_error_msgs)
+                print "\n".join(file_error_msgs)
+            if folder_error_msgs:
+                print "%s empty folders could not be deleted" % len(folder_error_msgs)
+                print "\n".join(folder_error_msgs)
 
     def delete_empty_folders(self):
         """Delete all empty folders under root (excluding root)"""
@@ -285,12 +299,17 @@ class P4Clean:
                 absolute_path = os.path.abspath(path)
                 if not self.config.is_excluded(absolute_path):
                     if not os.listdir(absolute_path):
+                        if self.dry_run:
+                            print "Would delete folder: '%s' " % absolute_path
+                            continue
                         try:
                             os.rmdir(absolute_path)
-                            print "Folder deleted: '%s' " % absolute_path
+                            if not self.quiet:
+                                print "Deleted folder: '%s' " % absolute_path
                             deleted_count = deleted_count + 1
                         except Exception:
                             error_msgs.append("Cannot delete empty folder (%s)" % sys.exc_info()[1])
+
         return deleted_count, error_msgs
 
     def delete_untracked_files(self):
@@ -298,20 +317,20 @@ class P4Clean:
         error_msgs = []
         for filename in self.perforce.get_untracked_files(os.getcwd()):
             if not self.config.is_excluded(filename):
+                if self.dry_run:
+                    print "Would delete file: '%s' " % filename
+                    continue
                 try:
                     # Make sure the file is writable before deleting otherwise the
                     # delete process fails
                     os.lchmod(filename, stat.S_IWRITE)
                     os.remove(filename)
-                    print "Deleted file: '%s' " % filename
+                    if not self.quiet:
+                        print "Deleted file: '%s' " % filename
                     deleted_count = deleted_count + 1
                 except:
                     error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
         return deleted_count, error_msgs
 
-
-def main():
-    P4Clean()
-
 if __name__ == "__main__":
-    main()
+    P4Clean().run()

@@ -214,11 +214,6 @@ def test_delete_empty_folders():
         def is_excluded(self, path):
             return False
 
-    def P4Clean_init():
-        pass
-
-    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
-
     instance = p4clean.P4Clean()
     instance.config = FakeConfig()
 
@@ -276,11 +271,6 @@ def test_delete_empty_folders_error_count():
     class FakeConfig(object):
         def is_excluded(self, path):
             return False
-
-    def P4Clean_init():
-        pass
-
-    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
 
     def mock_rmdir(path):
         raise Exception
@@ -340,11 +330,6 @@ def test_delete_untracked_files():
             return [root_folder + "/folder/tempA.txt",
                     root_folder + "/folder/tempB.txt"]
 
-    def P4Clean_init():
-        pass
-
-    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
-
     Perforce = Mock('P4Clean.Perforce')
     Perforce.mock_returns = Mock('perforce')
 
@@ -396,11 +381,6 @@ def test_delete_untracked_files_on_symlinks():
     class FakePerforce(object):
         def get_untracked_files(self, path):
             return [root_folder + "/folder/tempA.txt"]
-
-    def P4Clean_init():
-        pass
-
-    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
 
     Perforce = Mock('P4Clean.Perforce')
     Perforce.mock_returns = Mock('perforce')
@@ -463,11 +443,6 @@ def test_symlinks_source_file_mode_does_not_change():
         def get_untracked_files(self, path):
             return [root_folder + "/folder/tempA.txt",
                     root_folder + "/folder/tempB.txt"]
-
-    def P4Clean_init():
-        pass
-
-    mock('p4clean.P4Clean.__init__', returns_func=P4Clean_init)
 
     Perforce = Mock('P4Clean.Perforce')
     Perforce.mock_returns = Mock('perforce')
