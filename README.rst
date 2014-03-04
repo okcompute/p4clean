@@ -26,28 +26,28 @@ Usage
 -----
 To clean current folder hiearchy ::
 
-    $ p4clean 
+    $ p4clean
 
 Options::
 
-    Usage: p4clean [options] 
+    Usage: p4clean [options]
 
     Clean Perfoce local workspace.
 
     Options:
-      --version             Show program's version number and exit
-      -q, --quiet           Do not print names of deleted files and folders
       -n, --dry-run         Print names of files and folders that would be deleted
+      -q, --quiet           Do not print names of deleted files and folders
+      -e, --exclude         Semicolon separated list of file and folder patterns to be ignored from the clean-up.
+      -v, --version         Show program's version number and exit
       -h, --help            Show this help message and exit
-      --exclude             Semicolon separated list of file and folder patterns to be ignored from the clean-up.
 
 Config file
 -----------
 
 An optional p4clean config file can be used. Add a file named '.p4clean' anywhere
 inside the local workspace (Suggested location for .p4clean config file is workspace root).
-At launch, p4clean looks recursively up to the workspace root for this file. 
-If found, matching pattern files and directories are excluded from the clean-up. 
+At launch, p4clean looks recursively up to the workspace root for this file.
+If found, matching pattern files and directories are excluded from the clean-up.
 
 p4clean config file example::
 

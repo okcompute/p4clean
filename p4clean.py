@@ -256,7 +256,7 @@ class P4Clean:
         parser.add_argument("--exclude",
                             default=None,
                             help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
-        parser.add_argument('-V', '--version',
+        parser.add_argument('-v', '--version',
                             action='version',
                             version="p4clean version %s" % __version__)
         args = parser.parse_args()
