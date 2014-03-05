@@ -33,12 +33,14 @@ import re
 import fnmatch
 import ConfigParser
 import logging
+import platform
 
 __version__ = '0.1.1'
 
 # Use
 logging.basicConfig(format='%(message)s')
 logger = logging.getLogger('p4clean')
+logger.setLevel(logging.INFO)
 
 
 def shell_execute(command):
@@ -100,16 +102,23 @@ class Perforce(object):
 
     def get_untracked_files(self, root):
         """ Return a list of untracked files at the 'root' path. """
-        local_files = []
-        for path, directories, files in os.walk(root):
-            for file in files:
-                local_files.append(os.path.join(path, file))
         fstat = self._get_perforce_fstat(root)
+        if not fstat:
+            return []
         depot_files = []
         for line in fstat.splitlines():
             if line:
-                depot_files.append(os.path.normpath(
-                    line.lstrip("... clientFile").strip()))
+                depot_file = os.path.normpath(line.lstrip("... clientFile").strip())
+                if platform.system() == 'Windows':
+                    depot_file = depot_file.lower()
+                depot_files.append(depot_file)
+        local_files = []
+        for path, directories, files in os.walk(root):
+            for file in files:
+                local_file = os.path.join(path, file)
+                if platform.system() == 'Windows':
+                    local_file = local_file.lower()
+                local_files.append(local_file)
         untracked_files = set(local_files) - set(depot_files)
         return list(untracked_files)
 
@@ -118,14 +127,22 @@ class Perforce(object):
         result = ""
         # Get all file at current version synced by the client (-Rh)
         try:
-            result = result + shell_execute("p4 fstat -Rh -T clientFile " + os.path.join(root, "..."))
+            fstat = shell_execute("p4 fstat -Rh -T clientFile " + os.path.join(root, "..."))
+            if fstat:
+                result = result + fstat
+            else:
+                return None
         except Exception:
             logger.exception("Perforce is unavailable:")
             return None
         # Add all opened files. This will make sure file opened for add don't
         # get cleaned
         try:
-            result = result + shell_execute("p4 fstat -Ro -T clientFile " + os.path.join(root, "..."))
+            fstat = shell_execute("p4 fstat -Ro -T clientFile " + os.path.join(root, "..."))
+            if fstat:
+                result = result + fstat
+            else:
+                return None
         except Exception:
             logger.exception("Perforce is unavailable:")
             return None
@@ -225,7 +242,7 @@ class P4Clean:
 
         self.dry_run = args.dry_run
         if args.quiet:
-            logger.setLevel(logger.ERROR)
+            logger.setLevel(logging.ERROR)
 
         if not self.perforce.is_inside_workspace():
             logger.error("Nothing to clean: Current folder is not inside a Perforce workspace. Validate your perforce workspace with the command 'p4 where' or configure you command line workspace.")
@@ -237,7 +254,13 @@ class P4Clean:
 
         (deleted_folders_count, folder_error_msgs) = self.delete_empty_folders()
 
-        if not self.dry_run:
+        if self.dry_run:
+            logger.info(80 * "-")
+            logger.info("P4Clean dry run summary:")
+            logger.info(80 * "-")
+            logger.info("%d untracked files would be deleted." % deleted_files_count)
+            logger.info("%d empty folders would be deleted." % deleted_folders_count)
+        else:
             logger.info(80 * "-")
             logger.info("P4Clean summary:")
             logger.info(80 * "-")
@@ -262,6 +285,7 @@ class P4Clean:
                     if not os.listdir(absolute_path):
                         if self.dry_run:
                             logger.info("Would delete folder: '%s' " % absolute_path)
+                            deleted_count = deleted_count + 1
                             continue
                         try:
                             os.rmdir(absolute_path)
@@ -279,11 +303,15 @@ class P4Clean:
             if not self.config.is_excluded(filename):
                 if self.dry_run:
                     logger.info("Would delete file: '%s' " % filename)
+                    deleted_count = deleted_count + 1
                     continue
                 try:
                     # Make sure the file is writable before deleting otherwise the
                     # delete process fails
-                    os.lchmod(filename, stat.S_IWRITE)
+                    if hasattr(os, 'lchmod'):
+                        os.lchmod(filename, stat.S_IWRITE)
+                    else:
+                        os.chmod(filename, stat.S_IWRITE)
                     os.remove(filename)
                     logger.info("Deleted file: '%s'" % filename)
                     deleted_count = deleted_count + 1
