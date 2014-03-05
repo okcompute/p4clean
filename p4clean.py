@@ -40,7 +40,6 @@ __version__ = '0.1.1'
 # Use
 logging.basicConfig(format='%(message)s')
 logger = logging.getLogger('p4clean')
-logger.setLevel(logging.INFO)
 
 
 def shell_execute(command):
@@ -243,6 +242,8 @@ class P4Clean:
         self.dry_run = args.dry_run
         if args.quiet:
             logger.setLevel(logging.ERROR)
+        else:
+            logger.setLevel(logging.INFO)
 
         if not self.perforce.is_inside_workspace():
             logger.error("Nothing to clean: Current folder is not inside a Perforce workspace. Validate your perforce workspace with the command 'p4 where' or configure you command line workspace.")
