@@ -232,7 +232,7 @@ class P4Clean:
         parser.add_argument('-q', '--quiet',
                             action='store_true',
                             help="do not print names of deleted files and folders")
-        parser.add_argument("--exclude",
+        parser.add_argument('-e', '--exclude',
                             default=None,
                             help="semicolon separated exclusion pattern (e.g.: *.txt;*.log;")
         parser.add_argument('-v', '--version',
