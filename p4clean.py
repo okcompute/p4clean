@@ -306,17 +306,21 @@ class P4Clean:
                     deleted_count = deleted_count + 1
                     continue
                 try:
-                    # Make sure the file is writable before deleting otherwise the
-                    # delete process fails
-                    if hasattr(os, 'lchmod'):
-                        os.lchmod(filename, stat.S_IWRITE)
-                    else:
-                        os.chmod(filename, stat.S_IWRITE)
                     os.remove(filename)
-                    logger.info("Deleted file: '%s'" % filename)
-                    deleted_count = deleted_count + 1
                 except:
-                    error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
+                    if platform.systemt() == 'Windows':
+                        try:
+                            # Second try on Windows. Maybe the file was read
+                            # only?
+                            os.chmod(filename, stat.S_IWRITE)
+                            os.remove(filename)
+                        except:
+                            error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
+                            continue
+                    else:
+                        error_msgs.append("Cannot delete file (%s)" % sys.exc_info()[1])
+                logger.info("Deleted file: '%s'" % filename)
+                deleted_count = deleted_count + 1
         return deleted_count, error_msgs
 
 
