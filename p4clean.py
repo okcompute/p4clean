@@ -309,7 +309,7 @@ class P4Clean:
                 try:
                     os.remove(filename)
                 except:
-                    if platform.systemt() == 'Windows':
+                    if platform.system() == 'Windows':
                         try:
                             # Second try on Windows. Maybe the file was read
                             # only?
