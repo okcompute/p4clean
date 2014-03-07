@@ -42,6 +42,10 @@ logging.basicConfig(format='%(message)s')
 logger = logging.getLogger('p4clean')
 
 
+class ShellExecuteException(Exception):
+    pass
+
+
 def shell_execute(command):
     """ Run a shell command
 
@@ -52,9 +56,9 @@ def shell_execute(command):
     try:
         result = subprocess.check_output(command.split(),
                                          stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError:
-        # Do nothing, the error is already sent to stderr
-        return None
+    except subprocess.CalledProcessError, e:
+        logger.error("Error while calling command `%s`:%s " % (command, e))
+        raise ShellExecuteException
     return result
 
 
@@ -62,8 +66,12 @@ class Perforce(object):
     """ Interface to Perforce."""
 
     def __init__(self):
-        (version, root) = self.info()
-        self.root = root
+        try:
+            (version, root) = self.info()
+            self.root = root
+            self.available = True
+        except:
+            self.available = False
 
     @staticmethod
     def info():
@@ -71,11 +79,11 @@ class Perforce(object):
         # get version
         try:
             info = shell_execute("p4 info")
-        except Exception:
-            logger.exception("Perforce is unavailable:")
-            return (None, None)
+        except ShellExecuteException:
+            logger.error("Perforce is unavailable!")
+            raise
         if not info:
-            logger.error("Perforce is unavailable")
+            logger.error("Perforce is unavailable!")
             return (None, None)
         root = None
         version = None
@@ -94,7 +102,10 @@ class Perforce(object):
 
     def is_inside_workspace(self):
         """Return True if path inside current workspace."""
-        where = shell_execute("p4 where")
+        try:
+            where = shell_execute("p4 where")
+        except ShellExecuteException:
+            return False
         if where is None:
             return False
         return True
@@ -139,8 +150,8 @@ class Perforce(object):
                 result = result + fstat
             else:
                 return None
-        except Exception:
-            logger.exception("Perforce is unavailable:")
+        except ShellExecuteException:
+            logger.error("Perforce is unavailable:")
             return None
         # Add all opened files. This will make sure file opened for add don't
         # get cleaned
@@ -150,8 +161,8 @@ class Perforce(object):
                 result = result + fstat
             else:
                 return None
-        except Exception:
-            logger.exception("Perforce is unavailable:")
+        except ShellExecuteException:
+            logger.error("Perforce is unavailable:")
             return None
         return result
 
@@ -167,9 +178,9 @@ class P4CleanConfig(object):
         """  """
         # Look for the .p4clean file.
         config_exclusion_list = []
-        config_path = self.config_file_path(perforce_root)
+        config_path = self._config_file_path(perforce_root)
         if config_path:
-            config_exclusion_list = self.parse_config_file(config_path)
+            config_exclusion_list = self._parse_config_file(config_path)
 
         args_exclusion_list = []
         if exclusion:
@@ -180,15 +191,15 @@ class P4CleanConfig(object):
         # Exlude p4clean config file (path for *nix + windows)
         exclusion_list.append('*/' + P4CleanConfig.CONFIG_FILENAME)
         exclusion_list.append('*\\' + P4CleanConfig.CONFIG_FILENAME)
-        self.exclusion_regex = self.compute_regex(exclusion_list)
-
-    def compute_regex(self, exclusion_list):
-        return r'|'.join([fnmatch.translate(x) for x in exclusion_list]) or r'$.'
+        self.exclusion_regex = self._compute_regex(exclusion_list)
 
     def is_excluded(self, filename):
         return re.match(self.exclusion_regex, filename)
 
-    def config_file_path(self, root):
+    def _compute_regex(self, exclusion_list):
+        return r'|'.join([fnmatch.translate(x) for x in exclusion_list]) or r'$.'
+
+    def _config_file_path(self, root):
         """ Return absolute config file path. Return None if non-existent."""
         path = os.getcwd()
         root = os.path.abspath(root)
@@ -202,7 +213,7 @@ class P4CleanConfig(object):
                 else:
                     path = os.path.dirname(path)
 
-    def parse_config_file(self, path):
+    def _parse_config_file(self, path):
         """ Return exclusion list from a config file. """
         try:
             config_file = open(path)
@@ -232,6 +243,9 @@ class P4Clean:
 
     def run(self):
         """ Restore current working folder and subfolder to orginal state."""
+        if not self.perforce.available:
+            return
+
         parser = argparse.ArgumentParser()
         parser.add_argument('-n', '--dry-run',
                             action='store_true',
@@ -300,7 +314,7 @@ class P4Clean:
                             os.rmdir(absolute_path)
                             logger.info("Deleted folder: '%s' " % absolute_path)
                             deleted_count = deleted_count + 1
-                        except Exception:
+                        except:
                             error_msgs.append("Cannot delete empty folder (%s)" % sys.exc_info()[1])
 
         return deleted_count, error_msgs

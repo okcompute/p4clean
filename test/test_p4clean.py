@@ -93,7 +93,7 @@ def test_parse_config_file():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         'data',
                         '.p4clean')
-    exclusion_list = config.parse_config_file(path)
+    exclusion_list = config._parse_config_file(path)
 
     assert exclusion_list, "exclusion list should not be empty"
     assert '*.txt' in exclusion_list, "exclusion pattern should be in list"
@@ -111,7 +111,7 @@ def test_parse_config_file_no_file():
     restore()
 
     path = os.path.abspath('.')
-    exclusion_list = config.parse_config_file(path)
+    exclusion_list = config._parse_config_file(path)
 
     assert not exclusion_list, "Exclusion list should be empty."
 
@@ -119,13 +119,13 @@ def test_parse_config_file_no_file():
 def test_p4clean_config_constructor():
     """ Test the construction of a P4CleanConfig object. Note: this uses a sample
     .p4clean file located in /test/data folder"""
-    def P4CleanConfig_config_file_path(perforce_root):
+    def P4CleanConfig__config_file_path(perforce_root):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             'data',
                             '.p4clean')
 
-    mock('p4clean.P4CleanConfig.config_file_path',
-         returns_func=P4CleanConfig_config_file_path)
+    mock('p4clean.P4CleanConfig._config_file_path',
+         returns_func=P4CleanConfig__config_file_path)
 
     config = p4clean.P4CleanConfig('./test/data')
 
@@ -153,7 +153,7 @@ def test_p4clean_config_constructor():
     assert config.is_excluded('/tata/tata/.vimrc'), "File should be exluded"
 
 
-def test_config_file_path():
+def test__config_file_path():
     def P4CleanConfig_init():
         pass
 
@@ -164,7 +164,7 @@ def test_config_file_path():
     config = p4clean.P4CleanConfig()
     restore()
 
-    path = config.config_file_path('')
+    path = config._config_file_path('')
     os.chdir(old_cwd)
 
     assert path == os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -172,7 +172,7 @@ def test_config_file_path():
                                 '.p4clean'), "Unexpected config file path"
 
 
-def test_config_file_path_empty():
+def test__config_file_path_empty():
     def P4CleanConfig_init():
         pass
 
@@ -180,7 +180,7 @@ def test_config_file_path_empty():
     config = p4clean.P4CleanConfig()
     restore()
 
-    path = config.config_file_path("")
+    path = config._config_file_path("")
     assert path is None, "Unexpected config file path"
 
 
