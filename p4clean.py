@@ -118,24 +118,18 @@ class Perforce(object):
         depot_files = []
         for line in fstat.splitlines():
             if line:
-                depot_file = os.path.normpath(line.lstrip("... clientFile").strip())
-                if platform.system() == 'Windows':
-                    depot_file = depot_file.lower()
+                depot_file = os.path.normcase(os.path.normpath(line.lstrip("... clientFile").strip()))
                 depot_files.append(depot_file)
         local_files = []
         for path, directories, files in os.walk(root):
             for file in files:
-                local_file = os.path.join(path, file)
-                if platform.system() == 'Windows':
-                    local_file = local_file.lower()
+                local_file = os.path.normcase(os.path.join(path, file))
                 local_files.append(local_file)
             # os.walk() treats symlinks to directories as if they
             # are directories, but we need to treat them as files.
             for directory in directories:
-                local_file = os.path.join(path, directory)
+                local_file = os.path.normcase(os.path.join(path, directory))
                 if os.path.islink(local_file):
-                    if platform.system() == 'Windows':
-                        local_file = local_file.lower()
                     local_files.append(local_file)
         untracked_files = set(local_files) - set(depot_files)
         return list(untracked_files)
