@@ -3,6 +3,7 @@ import shutil
 import stat
 import os
 import tempfile
+import platform
 from mock import (
     patch,
     Mock,
@@ -48,14 +49,18 @@ class P4CleanTests(unittest.TestCase):
             untracked_files = perforce.get_untracked_files("dummy")
 
         self.assertEqual(len(untracked_files), 2)
-        self.assertTrue("/path/newfile.c" in untracked_files)
-        self.assertTrue("/path/newfile.h" in untracked_files)
+        self.assertTrue(os.path.normpath("/path/newfile.c") in untracked_files)
+        self.assertTrue(os.path.normpath("/path/newfile.h") in untracked_files)
 
     @patch('os.walk')
     def test_get_untracked_files_with_same_filename_different_case(self,
                                                                    mock_os_walk):
         """ Test P4Clean differentiates untracked files with same filename but
         different case."""
+        # This test cannot be ran under windows. System is case insensitive.
+        if platform.system() == 'Windows':
+            return
+
         # patch os.walk return value
         mock_os_walk.return_value = [("/path", [], ['test.log',
                                                     'TEST.log',
@@ -155,6 +160,7 @@ class P4CleanTests(unittest.TestCase):
         """ Test P4Clean 'delete empty folders' feature. """
         instance = mock_perforce.return_value
         instance.get_untracked_files.return_value = []
+        instance.root = '.'
 
         root_folder = tempfile.mkdtemp()
 
@@ -187,13 +193,13 @@ class P4CleanTests(unittest.TestCase):
         folder_list = [path for path, directories, files in os.walk(root_folder)]
 
         self.assertTrue(root_folder in folder_list)
-        self.assertTrue(root_folder + '/folderA' in folder_list)
-        self.assertTrue(root_folder + '/folderA/folderAA' in folder_list)
-        self.assertTrue(root_folder + '/folderD' in folder_list)
-        self.assertTrue(root_folder + '/folderD/folderDD' in folder_list)
-        self.assertTrue(root_folder + '/folderB' not in folder_list)
-        self.assertTrue(root_folder + '/folderC' not in folder_list)
-        self.assertTrue(root_folder + '/folderC/folderCC' not in folder_list)
+        self.assertTrue(os.path.normpath(root_folder + '/folderA') in folder_list)
+        self.assertTrue(os.path.normpath(root_folder + '/folderA/folderAA') in folder_list)
+        self.assertTrue(os.path.normpath(root_folder + '/folderD') in folder_list)
+        self.assertTrue(os.path.normpath(root_folder + '/folderD/folderDD') in folder_list)
+        self.assertFalse(os.path.normpath(root_folder + '/folderB') in folder_list)
+        self.assertFalse(os.path.normpath(root_folder + '/folderC') in folder_list)
+        self.assertFalse(os.path.normpath(root_folder + '/folderC/folderCC') in folder_list)
 
         shutil.rmtree(root_folder)
 
@@ -290,6 +296,10 @@ class P4CleanTests(unittest.TestCase):
     def test_delete_untracked_files_on_symlinks(self, mock_p4clean_config, mock_perforce):
         """ Test P4Clean `delete_untracked_files` method will not delete files
         targeted by a symlinks. Only the symlink itself will be removed. """
+        # This test cannot be ran under windows. os.symlink does not exist.
+        if platform.system() == 'Windows':
+            return
+
         root_folder = tempfile.mkdtemp()
 
         # Mock Perforce class to return a predefined list of untracked files.
@@ -334,6 +344,10 @@ class P4CleanTests(unittest.TestCase):
     def test_symlinks_source_file_mode_does_not_change(self, mock_p4clean_config, mock_perforce):
         """ Test P4Clean `delete_untracked_files` method will not change the file
         mode for source of a symlinked file."""
+        # This test cannot be ran under windows. os.symlink does not exist.
+        if platform.system() == 'Windows':
+            return
+
         root_folder = tempfile.mkdtemp()
 
         # Mock Perforce class to return a predefined list of untracked files.
