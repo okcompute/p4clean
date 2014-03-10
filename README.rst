@@ -1,5 +1,8 @@
 P4clean
 ========
+.. image:: https://travis-ci.org/okcompute/p4clean.png?branch=master
+    :target: https://travis-ci.org/okcompute/p4clean
+    :alt: Build status
 
 About
 -----
