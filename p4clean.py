@@ -194,7 +194,7 @@ class P4CleanConfig(object):
         self.exclusion_regex = self._compute_regex(exclusion_list)
 
     def is_excluded(self, filename):
-        return re.match(self.exclusion_regex, filename)
+        return re.match(self.exclusion_regex, filename) is not None
 
     def _compute_regex(self, exclusion_list):
         return r'|'.join([fnmatch.translate(x) for x in exclusion_list]) or r'$.'
