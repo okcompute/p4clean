@@ -1,4 +1,4 @@
-import unittest
+import unittest2
 import shutil
 import stat
 import os
@@ -15,7 +15,7 @@ from p4clean import (
 )
 
 
-class P4CleanTests(unittest.TestCase):
+class P4CleanTests(unittest2.TestCase):
 
     """P4Clean module test class."""
 
