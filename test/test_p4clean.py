@@ -2,6 +2,7 @@ import unittest
 import shutil
 import stat
 import os
+import tempfile
 from mock import (
     patch,
     Mock,
@@ -155,10 +156,9 @@ class P4CleanTests(unittest.TestCase):
         instance = mock_perforce.return_value
         instance.get_untracked_files.return_value = []
 
-        root_folder = os.tmpnam()
+        root_folder = tempfile.mkdtemp()
 
         # Create a folder tree
-        os.mkdir(root_folder)
         os.mkdir(root_folder + '/folderA')
         os.mkdir(root_folder + '/folderA/folderAA')
         os.mkdir(root_folder + '/folderB')
@@ -200,10 +200,9 @@ class P4CleanTests(unittest.TestCase):
     def test_delete_empty_folders_error_count(self):
         """ Test P4Clean method `delete_empty_folders` returns the correct
         errors count when os.rmdir() raise exceptions. """
-        root_folder = os.tmpnam()
+        root_folder = tempfile.mkdtemp()
 
         # Create 3 empty folders
-        os.mkdir(root_folder)
         os.mkdir(root_folder + '/folderA')
         os.mkdir(root_folder + '/folderB')
         os.mkdir(root_folder + '/folderC')
@@ -241,7 +240,7 @@ class P4CleanTests(unittest.TestCase):
     @patch('p4clean.P4CleanConfig')
     def test_delete_untracked_files(self, mock_p4clean_config, mock_perforce):
         """ Test P4Clean `delete_untracked_files` method. """
-        root_folder = os.tmpnam()
+        root_folder = tempfile.mkdtemp()
 
         # Mock Perforce class to return a predefined list of untracked files.
         perforce = mock_perforce.return_value
@@ -253,7 +252,6 @@ class P4CleanTests(unittest.TestCase):
         config.is_excluded.return_value = False
 
         # Create a folder tree
-        os.mkdir(root_folder)
         os.mkdir(root_folder + '/folder')
 
         old_cwd = os.getcwd()
@@ -288,7 +286,7 @@ class P4CleanTests(unittest.TestCase):
     def test_delete_untracked_files_on_symlinks(self, mock_p4clean_config, mock_perforce):
         """ Test P4Clean `delete_untracked_files` method will not delete files
         targeted by a symlinks. Only the symlink itself will be removed. """
-        root_folder = os.tmpnam()
+        root_folder = tempfile.mkdtemp()
 
         # Mock Perforce class to return a predefined list of untracked files.
         perforce = mock_perforce.return_value
@@ -299,7 +297,6 @@ class P4CleanTests(unittest.TestCase):
         config.is_excluded.return_value = False
 
         # Create a folder tree
-        os.mkdir(root_folder)
         os.mkdir(root_folder + '/folder')
 
         old_cwd = os.getcwd()
@@ -333,7 +330,7 @@ class P4CleanTests(unittest.TestCase):
     def test_symlinks_source_file_mode_does_not_change(self, mock_p4clean_config, mock_perforce):
         """ Test P4Clean `delete_untracked_files` method will not change the file
         mode for source of a symlinked file."""
-        root_folder = os.tmpnam()
+        root_folder = tempfile.mkdtemp()
 
         # Mock Perforce class to return a predefined list of untracked files.
         perforce = mock_perforce.return_value
@@ -345,7 +342,6 @@ class P4CleanTests(unittest.TestCase):
         config.is_excluded.return_value = False
 
         # Create a folder tree
-        os.mkdir(root_folder)
         os.mkdir(root_folder + '/folder')
 
         old_cwd = os.getcwd()
