@@ -152,7 +152,7 @@ class P4CleanTests(unittest.TestCase):
 
     @patch('p4clean.Perforce')
     def test_delete_empty_folders(self, mock_perforce):
-        """ Test P4Clean `delete_empty_folders` method. """
+        """ Test P4Clean 'delete empty folders' feature. """
         instance = mock_perforce.return_value
         instance.get_untracked_files.return_value = []
 
@@ -197,9 +197,13 @@ class P4CleanTests(unittest.TestCase):
 
         shutil.rmtree(root_folder)
 
-    def test_delete_empty_folders_error_count(self):
+    @patch('p4clean.Perforce')
+    def test_delete_empty_folders_error_count(self, mock_perforce):
         """ Test P4Clean method `delete_empty_folders` returns the correct
         errors count when os.rmdir() raise exceptions. """
+        instance = mock_perforce.return_value
+        instance.get_untracked_files.return_value = []
+
         root_folder = tempfile.mkdtemp()
 
         # Create 3 empty folders
