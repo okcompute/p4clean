@@ -35,7 +35,7 @@ import ConfigParser
 import logging
 import platform
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 # Use
 logging.basicConfig(format='%(message)s')
