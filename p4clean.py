@@ -182,16 +182,15 @@ class P4CleanConfig(object):
 
         # chain args and config file exclusion lists
         exclusion_list = args_exclusion_list + config_exclusion_list
-        # Exlude p4clean config file (path for *nix + windows)
-        exclusion_list.append('*/' + P4CleanConfig.CONFIG_FILENAME)
-        exclusion_list.append('*\\' + P4CleanConfig.CONFIG_FILENAME)
+        # Exlude p4clean config file
+        exclusion_list.append(os.path.join('*', P4CleanConfig.CONFIG_FILENAME))
         self.exclusion_regex = self._compute_regex(exclusion_list)
 
     def is_excluded(self, filename):
-        return re.match(self.exclusion_regex, filename) is not None
+        return self.exclusion_regex.match(filename) is not None
 
     def _compute_regex(self, exclusion_list):
-        return r'|'.join([fnmatch.translate(x) for x in exclusion_list]) or r'$.'
+        return re.compile(r'|'.join([fnmatch.translate(x) for x in exclusion_list]) or r'$.')
 
     def _config_file_path(self, root):
         """ Return absolute config file path. Return None if non-existent."""
