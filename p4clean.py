@@ -36,7 +36,7 @@ import logging
 import platform
 import ctypes
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 # Use
 logging.basicConfig(format='%(message)s')
