@@ -34,7 +34,6 @@ import fnmatch
 import ConfigParser
 import logging
 import platform
-import ctypes
 
 __version__ = '0.3.0'
 
@@ -74,21 +73,6 @@ class Perforce(object):
             self.available = True
         except:
             self.available = False
-
-    @staticmethod
-    def _is_link(path):
-        """ Return True if the path is a symlink. This improve on the stanard
-        library for working on windows system!. """
-        if platform.system() == 'Windows':
-            FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-
-            if os.path.isdir(path) and \
-                    (ctypes.windll.kernel32.GetFileAttributesW(unicode(path)) & FILE_ATTRIBUTE_REPARSE_POINT):
-                return True
-            else:
-                return False
-        else:
-            return os.path.symlink(path)
 
     @staticmethod
     def info():
@@ -141,14 +125,14 @@ class Perforce(object):
         for path, directories, files in os.walk(root):
             for file in files:
                 local_file = os.path.normcase(os.path.join(path, file))
-                if not self._is_link(local_file):
-                    local_files.append(local_file)
-            # os.walk() treats symlinks to directories as if they
-            # are directories, but we need to treat them as files.
-            for directory in directories:
-                local_folder = os.path.normcase(os.path.join(path, directory))
-                if self._is_link(local_folder):
-                    local_files.append(local_folder)
+                local_files.append(local_file)
+            if platform.system() != 'Windows':
+                # os.walk() treats symlinks to directories as if they
+                # are directories, but we need to treat them as files.
+                for directory in directories:
+                    local_folder = os.path.normcase(os.path.join(path, directory))
+                    if os.path.islink(local_folder):
+                        local_files.append(local_folder)
         untracked_files = set(local_files) - set(depot_files)
         return list(untracked_files)
 
@@ -330,7 +314,6 @@ class P4Clean:
                             deleted_count = deleted_count + 1
                         except:
                             error_msgs.append("Cannot delete empty folder (%s)" % sys.exc_info()[1])
-
         return deleted_count, error_msgs
 
     def delete_untracked_files(self):
