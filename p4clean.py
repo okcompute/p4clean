@@ -88,7 +88,7 @@ class Perforce(object):
     def __init__(self):
         try:
             (version, root) = self.info()
-            self.root = root
+            self.root = os.path.normcase(os.path.normpath(root))
             self.available = True
         except:
             self.available = False
@@ -130,16 +130,6 @@ class Perforce(object):
             return False
         return True
 
-    def is_inside_symbolic_folder(self, filepath):
-        """Return True if a file is inside a symbolic folder. The check is done
-        up to perforce root."""
-        path = os.path.dirname(filepath)
-        while path != self.root:
-            if is_link(path):
-                return True
-            path = os.path.dirname(path)
-        return False
-
     def get_untracked_files(self, root):
         """ Return a list of untracked files at the 'root' path. """
         fstat = self._get_perforce_fstat(root)
@@ -151,14 +141,24 @@ class Perforce(object):
                 depot_file = os.path.normcase(os.path.normpath(line.lstrip("... clientFile").strip()))
                 depot_files.append(depot_file)
         local_files = []
+        symlink_folder = None
         for path, directories, files in os.walk(root):
+            if platform.system() == 'Windows':
+                # Under Windows, don't process anything under a known symlink
+                # folder
+                if symlink_folder:
+                    if path.startswith(symlink_folder):
+                        continue
+                if is_link(path):
+                    # Remember the process is walkin a symlink
+                    symlink_folder = path
+                    continue
+                else:
+                    # Out of symklink tree
+                    symlink_folder = None
             for file in files:
                 local_file = os.path.normcase(os.path.join(path, file))
-                if platform.system() == 'Windows':
-                    if not self.is_inside_symbolic_folder(path):
-                        local_files.append(local_file)
-                else:
-                    local_files.append(local_file)
+                local_files.append(local_file)
             if platform.system() != 'Windows':
                 # os.walk() treats symlinks to directories as if they
                 # are directories, but we need to treat them as files.
@@ -306,7 +306,7 @@ class P4Clean:
 
         (deleted_files_count, file_error_msgs) = self.delete_untracked_files()
 
-        (empty_folders_deleted_count, symlink_folders_deleted_count, folder_error_msgs) = self.delete_folders()
+        (empty_folders_deleted_count, folder_error_msgs) = self.delete_empty_folders()
 
         if self.dry_run:
             logger.info(80 * "-")
@@ -314,16 +314,12 @@ class P4Clean:
             logger.info(80 * "-")
             logger.info("%d untracked files would be deleted." % deleted_files_count)
             logger.info("%d empty folders would be deleted." % empty_folders_deleted_count)
-            if platform.system() == 'Windows':
-                logger.info("%d symlink folders would be deleted." % symlink_folders_deleted_count)
         else:
             logger.info(80 * "-")
             logger.info("P4Clean summary:")
             logger.info(80 * "-")
             logger.info("%d untracked files deleted." % deleted_files_count)
             logger.info("%d empty folders deleted." % empty_folders_deleted_count)
-            if platform.system() == 'Windows':
-                logger.info("%d symlink folders deleted." % symlink_folders_deleted_count)
             if file_error_msgs:
                 logger.error("%s files could not be deleted" % len(file_error_msgs))
                 logger.error("\n".join(file_error_msgs))
@@ -331,12 +327,20 @@ class P4Clean:
                 logger.error("%s empty folders could not be deleted" % len(folder_error_msgs))
                 logger.error("\n".join(folder_error_msgs))
 
-    def delete_folders(self):
-        """Delete all empty and symlink folders under root (excluding root)"""
+    def delete_empty_folders(self):
+        """Delete all empty folders under root (excluding root)"""
         empty_deleted_count = 0
-        symlink_deleted_count = 0
         error_msgs = []
         root = os.getcwd()
+        if platform.system() == 'Windows':
+            # Only on windows, delete all symlink folders in first loop.
+            for path, directories, files in os.walk(root):
+                if is_link(path):
+                    if self.dry_run:
+                        logger.info("Would delete symlink folder: '%s' " % path)
+                        continue
+                    else:
+                        os.rmdir(path)
         for path, directories, files in os.walk(root, topdown=False):
             if not files and path is not root:
                 absolute_path = os.path.abspath(path)
@@ -352,23 +356,7 @@ class P4Clean:
                             empty_deleted_count = empty_deleted_count + 1
                         except:
                             error_msgs.append("Cannot delete empty folder (%s)" % sys.exc_info()[1])
-            if platform.system() == 'Windows':
-                # On windows, symlinked folder needs to be deleted using
-                # os.rmdir
-                for directory in directories:
-                    local_folder = os.path.normcase(os.path.join(path, directory))
-                    if is_link(local_folder):
-                        if self.dry_run:
-                            logger.info("Would delete folder symlink: '%s' " % local_folder)
-                            symlink_deleted_count = symlink_deleted_count + 1
-                            continue
-                        try:
-                            os.rmdir(absolute_path)
-                            logger.info("Deleted folder symlink: '%s' " % local_folder)
-                            symlink_deleted_count = symlink_deleted_count + 1
-                        except:
-                            error_msgs.append("Cannot delete folder symlink (%s)" % sys.exc_info()[1])
-        return empty_deleted_count, symlink_deleted_count, error_msgs
+        return empty_deleted_count, error_msgs
 
     def delete_untracked_files(self):
         deleted_count = 0
