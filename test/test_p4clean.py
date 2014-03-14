@@ -44,6 +44,8 @@ class P4CleanTests(unittest2.TestCase):
                 "...clientFile /path/test.log \n \
                 ... clientFile /path/blarg/file.txt \n \
                 ... clientFile /path/path2/code.c "
+            perforce.is_inside_symbolic_folder = Mock()
+            perforce.is_inside_symbolic_folder.return_value = False
 
             # The test
             untracked_files = perforce.get_untracked_files("dummy")
@@ -79,6 +81,8 @@ class P4CleanTests(unittest2.TestCase):
                 "... clientFile /path/readme.txt \n \
                 ... clientFile /path/README.txt \n \
                 ... clientFile /path/path2/code.c "
+            perforce.is_inside_symbolic_folder = Mock()
+            perforce.is_inside_symbolic_folder.return_value = False
 
             # The test
             untracked_files = perforce.get_untracked_files("dummy")
@@ -236,12 +240,12 @@ class P4CleanTests(unittest2.TestCase):
                 instance.config = mock_config
 
                 # the tested function call
-                deleted_count, error_msgs = instance.delete_empty_folders()
+                empty_deleted_count, symlink_deleted_count, error_msgs = instance.delete_folders()
 
         os.chdir(old_cwd)
         # restore()
 
-        assert deleted_count == 0, "No folder should have been deleted"
+        assert empty_deleted_count == 0, "No folder should have been deleted"
         assert len(error_msgs) == 2, "All folders should have thrown an error"
 
         shutil.rmtree(root_folder)
