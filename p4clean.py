@@ -34,7 +34,6 @@ import fnmatch
 import ConfigParser
 import logging
 import platform
-import ctypes
 
 __version__ = '0.3.2'
 
@@ -45,24 +44,6 @@ logger = logging.getLogger('p4clean')
 
 class ShellExecuteException(Exception):
     pass
-
-
-def is_link(path):
-    """ Return True if the path is a symlink. This improve on the stanard
-    library for working on windows system!. """
-    # if not os.path.exists(path):
-    #     return False
-    if platform.system() == 'Windows':
-        FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-        if isinstance(path, unicode):
-            attributes = ctypes.windll.kernel32.GetFileAttributesW(path)
-        else:
-            attributes = ctypes.windll.kernel32.GetFileAttributesA(path)
-        if attributes == -1:
-            return False
-        return attributes & FILE_ATTRIBUTE_REPARSE_POINT
-    else:
-        return os.path.symlink(path)
 
 
 def shell_execute(command):
@@ -141,21 +122,7 @@ class Perforce(object):
                 depot_file = os.path.normcase(os.path.normpath(line.lstrip("... clientFile").strip()))
                 depot_files.append(depot_file)
         local_files = []
-        symlink_folder = None
         for path, directories, files in os.walk(root):
-            if platform.system() == 'Windows':
-                # Under Windows, don't process anything under a known symlink
-                # folder
-                if symlink_folder:
-                    if path.startswith(symlink_folder):
-                        continue
-                if is_link(path):
-                    # Remember the process is walkin a symlink
-                    symlink_folder = path
-                    continue
-                else:
-                    # Out of symklink tree
-                    symlink_folder = None
             for file in files:
                 local_file = os.path.normcase(os.path.join(path, file))
                 local_files.append(local_file)
@@ -332,15 +299,6 @@ class P4Clean:
         empty_deleted_count = 0
         error_msgs = []
         root = os.getcwd()
-        if platform.system() == 'Windows':
-            # Only on windows, delete all symlink folders in first loop.
-            for path, directories, files in os.walk(root):
-                if is_link(path):
-                    if self.dry_run:
-                        logger.info("Would delete symlink folder: '%s' " % path)
-                        continue
-                    else:
-                        os.rmdir(path)
         for path, directories, files in os.walk(root, topdown=False):
             if not files and path is not root:
                 absolute_path = os.path.abspath(path)

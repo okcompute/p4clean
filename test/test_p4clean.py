@@ -240,7 +240,7 @@ class P4CleanTests(unittest2.TestCase):
                 instance.config = mock_config
 
                 # the tested function call
-                empty_deleted_count, symlink_deleted_count, error_msgs = instance.delete_folders()
+                empty_deleted_count, error_msgs = instance.delete_empty_folders()
 
         os.chdir(old_cwd)
         # restore()
